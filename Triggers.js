@@ -70,7 +70,10 @@ function installedOnEdit(e) {
 
     if (cell === "K2" && e.range.getValue() === true) {
       e.range.setValue(false);
+      SpreadsheetApp.flush();
+
       loadQuotationToForm();
+
       return;
     }
 

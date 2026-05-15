@@ -692,9 +692,21 @@ function loadQuotationToForm() {
   // REFRESH
   // ===============================
 
+  SpreadsheetApp.flush();
+
   refreshQuotationForm();
 
-  applyQuotationReadOnlyUI_();
+  SpreadsheetApp.flush();
+
+  if (typeof refreshQuotationKPIsFromForm === "function") {
+    refreshQuotationKPIsFromForm();
+  }
+
+  if (typeof applyQuotationReadOnlyUI_ === "function") {
+    applyQuotationReadOnlyUI_();
+  }
+
+  SpreadsheetApp.flush();
 
   ui.alert("Quotation loaded ✅");
 }
