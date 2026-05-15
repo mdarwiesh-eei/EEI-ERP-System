@@ -3,16 +3,16 @@ function buildCustomerSelector() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const db = ss.getSheetByName(CONFIG.SHEETS.CUSTOMERS);
   const profile = ss.getSheetByName("Customer_Profile");
-  
+
   if (!db || !profile || db.getLastRow() < 3) return;
-  
+
   const data = db.getRange(3, 1, db.getLastRow() - 2, 11).getValues();
-  
+
   const list = data
-    .filter(function(r) {
+    .filter(function (r) {
       return r[0] && r[1] && r[10] === "Active";
-    }) 
-    .map(function(r) {
+    })
+    .map(function (r) {
       return r[0] + " | " + r[1];
     });
 
@@ -22,7 +22,7 @@ function buildCustomerSelector() {
     .requireValueInList(list, true)
     .setAllowInvalid(false)
     .build();
-  
+
   profile.getRange("B3").setDataValidation(rule);
 }
 
@@ -46,7 +46,7 @@ function buildQuotationCustomerSelector() {
 
   const list = [];
 
-  data.forEach(function(row) {
+  data.forEach(function (row) {
 
     if (
       row[0] &&
@@ -100,7 +100,7 @@ function buildQuotationSelectorForForm() {
 
   const list = [];
 
-  data.forEach(function(row) {
+  data.forEach(function (row) {
 
     const qID =
       row[0] ? row[0].toString().trim() : "";
@@ -108,18 +108,13 @@ function buildQuotationSelectorForForm() {
     const project =
       row[3] ? row[3].toString().trim() : "";
 
-    const revision =
-      row[4] ? row[4].toString().trim() : "";
-
     const status =
       row[5] ? row[5].toString().trim() : "";
 
-    if (qID && revision && project && status) {
+    if (qID && project && status) {
 
       list.push(
         qID +
-        " | " +
-        revision +
         " | " +
         project +
         " | " +
@@ -189,7 +184,7 @@ function buildAssignedUserSelector() {
 
   const list = [];
 
-  data.forEach(function(row) {
+  data.forEach(function (row) {
 
     const email = row[1];
     const name = row[2];
@@ -230,48 +225,44 @@ function buildAssignedUserSelector() {
 
 function buildRevisionSelectorForForm(qID) {
 
-  const ss =
-    SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   const revisions =
-    ss.getSheetByName(
-      CONFIG.SHEETS.QUOTATION_REVISIONS
-    );
+    ss.getSheetByName(CONFIG.SHEETS.QUOTATION_REVISIONS);
 
   const form =
-    ss.getSheetByName(
-      CONFIG.SHEETS.QUOTATION_FORM
-    );
+    ss.getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
 
-  if (!revisions || !form) return;
+  if (!form) return;
 
-  const cell =
-    form.getRange("E2");
-
-  const currentValue =
-    cell.getDisplayValue()
-      .toString()
-      .trim();
+  const cell = form.getRange("E2");
 
   cell.clearDataValidations();
 
-  if (!qID) return;
+  if (!revisions) {
+    cell.setValue("Revision sheet not found");
+    return;
+  }
 
-  if (revisions.getLastRow() < 2) return;
+  if (!qID) {
+    cell.setValue("No QID");
+    return;
+  }
 
-  const data =
-    revisions
-      .getRange(
-        2,
-        1,
-        revisions.getLastRow() - 1,
-        20
-      )
-      .getValues();
+  qID = qID.toString().trim();
+
+  if (revisions.getLastRow() < 2) {
+    cell.setValue("No revisions data");
+    return;
+  }
+
+  const data = revisions
+    .getRange(2, 1, revisions.getLastRow() - 1, 20)
+    .getValues();
 
   const list = [];
 
-  data.forEach(function(row) {
+  data.forEach(function (row) {
 
     const rowQID =
       row[1] ? row[1].toString().trim() : "";
@@ -285,10 +276,7 @@ function buildRevisionSelectorForForm(qID) {
     const reason =
       row[4] ? row[4].toString().trim() : "";
 
-    if (
-      rowQID === qID &&
-      revisionNo
-    ) {
+    if (rowQID === qID && revisionNo) {
 
       list.push(
         revisionNo +
@@ -301,31 +289,20 @@ function buildRevisionSelectorForForm(qID) {
 
   });
 
-  if (!list.length) return;
-
-  const rule =
-    SpreadsheetApp
-      .newDataValidation()
-      .requireValueInList(list, true)
-      .setAllowInvalid(true)
-      .build();
-
-  cell.setDataValidation(rule);
-
-  // حافظ على القيمة الحالية
-  if (
-    currentValue &&
-    list.includes(currentValue)
-  ) {
-
-    cell.setValue(currentValue);
-
-  } else {
-
-    cell.setValue(list[0]);
-
+  if (!list.length) {
+    cell.setValue("No revision for " + qID);
+    return;
   }
 
+  const rule = SpreadsheetApp
+    .newDataValidation()
+    .requireValueInList(list, true)
+    .setAllowInvalid(true)
+    .build();
+
+  cell.setDataValidation(rule);
+  cell.setValue(list[0]);
 }
+
 
 

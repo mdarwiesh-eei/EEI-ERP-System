@@ -69,8 +69,8 @@ function installedOnEdit(e) {
     const qID = sheet.getRange("B6").getValue();
 
     if (cell === "K2" && e.range.getValue() === true) {
-      loadQuotationToForm();
       e.range.setValue(false);
+      loadQuotationToForm();
       return;
     }
 

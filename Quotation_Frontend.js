@@ -160,7 +160,7 @@ function repairQuotationFormButtons() {
     "K15"
   ];
 
-  buttonCells.forEach(function(cell) {
+  buttonCells.forEach(function (cell) {
 
     sheet.getRange(cell)
       .clearContent()
@@ -186,7 +186,7 @@ function repairQuotationFormButtons() {
     ["L15", "📂 Open Folder"]
   ];
 
-  labels.forEach(function(row) {
+  labels.forEach(function (row) {
 
     sheet.getRange(row[0])
       .setValue(row[1])
@@ -233,7 +233,7 @@ function addQuotationItemsFromGrid() {
 
   let addedCount = 0;
 
-  rows.forEach(function(row) {
+  rows.forEach(function (row) {
 
     const description = row[1];
     const transformerType = row[2];
@@ -350,7 +350,7 @@ function createQuotationRevisionFromForm() {
 
   refreshQuotationForm();
 
-  ui.alert("Revision created successfully ✅"); 
+  ui.alert("Revision created successfully ✅");
 }
 
 
@@ -381,7 +381,7 @@ function clearQuotationForm() {
 
   ];
 
-  clearRanges.forEach(function(range) {
+  clearRanges.forEach(function (range) {
 
     sheet.getRange(range)
       .clearContent();
@@ -403,7 +403,7 @@ function clearQuotationForm() {
     "K15"
   ];
 
-  buttonCells.forEach(function(cell) {
+  buttonCells.forEach(function (cell) {
 
     sheet.getRange(cell)
       .setValue(false);
@@ -595,6 +595,8 @@ function loadQuotationToForm() {
   const revisionNo =
     quotation.currentRevision;
 
+  buildRevisionSelectorForForm(qID);
+
   const terms =
     getQuotationTerms_(
       qID,
@@ -729,7 +731,7 @@ function loadQuotationItemsToGrid_(
 
   const rows = [];
 
-  data.forEach(function(row) {
+  data.forEach(function (row) {
 
     if (
       row[1] === qID &&
@@ -829,7 +831,7 @@ function applyQuotationReadOnlyUI_() {
     "A19:L35"
   ];
 
-  editableRanges.forEach(function(range) {
+  editableRanges.forEach(function (range) {
 
     sheet.getRange(range)
       .setBackground(
