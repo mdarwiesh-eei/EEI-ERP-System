@@ -1,0 +1,867 @@
+function createQuotationFromForm() {
+
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  const ui = SpreadsheetApp.getUi();
+
+  if (!sheet) {
+    ui.alert("Quotation_Form sheet not found.");
+    return;
+  }
+
+  try {
+
+    const customerValue = sheet.getRange("B4").getValue().toString().trim();
+    const projectName = sheet.getRange("B5").getValue().toString().trim();
+
+    if (!customerValue || !customerValue.includes("|")) {
+      ui.alert("Please select a customer.");
+      return;
+    }
+
+    if (!projectName) {
+      ui.alert("Please enter project name.");
+      return;
+    }
+
+    const customerID = customerValue.split("|")[0].trim();
+
+    const result = createQuotation({
+
+      customerID: customerID,
+      projectName: projectName,
+      rfqDate: sheet.getRange("E4").getValue(),
+      assignedTo: sheet.getRange("E5").getValue(),
+      currency: sheet.getRange("E6").getValue() || CONFIG.CURRENCY.EGP,
+      customerRFQLink: sheet.getRange("E7").getValue(),
+      notes: sheet.getRange("E8").getValue()
+
+    });
+
+    if (!result || !result.success) return;
+
+    sheet.getRange("B6").setValue(result.qID);
+    sheet.getRange("B7").setValue(result.revisionNo);
+    sheet.getRange("B8").setValue(CONFIG.QUOTATION_STATUS.DRAFT);
+
+    saveCommercialTermsFromForm();
+    refreshQuotationForm();
+
+    ui.alert("Quotation Created Successfully ✅");
+
+  } catch (err) {
+
+    ui.alert("Create Quotation Error: " + err.message);
+    Logger.log(err);
+
+  }
+}
+
+
+
+
+function saveCommercialTermsFromForm() {
+
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  if (!sheet) return;
+
+  const qID = sheet.getRange("B6").getValue().toString().trim();
+  const revisionNo = sheet.getRange("B7").getValue().toString().trim();
+
+  if (!qID || !revisionNo) return;
+
+  updateQuotationCommercialTerms({
+
+    qID: qID,
+    revisionNo: revisionNo,
+    currency: sheet.getRange("E6").getValue() || CONFIG.CURRENCY.EGP,
+    discountPercent: sheet.getRange("B11").getValue(),
+    vatPercent: sheet.getRange("B12").getValue(),
+    advancePercent: sheet.getRange("B13").getValue(),
+    deliveryTerms: sheet.getRange("B14").getValue(),
+    paymentTerms: sheet.getRange("E11").getValue(),
+    validityDays: sheet.getRange("E12").getValue(),
+    notes: "Updated from Quotation_Form"
+
+  });
+}
+
+
+
+function refreshQuotationForm() {
+
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  if (!sheet) return;
+
+  const qID = sheet.getRange("B6").getValue().toString().trim();
+  const revisionNo = sheet.getRange("B7").getValue().toString().trim();
+
+  if (!qID || !revisionNo) return;
+
+  updateQuotationTotals(qID, revisionNo);
+
+  const terms = getQuotationTerms_(qID, revisionNo);
+
+  if (terms) {
+
+    const vatAmount =
+      terms.grandTotal -
+      terms.subTotal +
+      (terms.subTotal * terms.discountPercent / 100);
+
+    sheet.getRange("H11").setValue(terms.subTotal);
+    sheet.getRange("H12").setValue(vatAmount);
+    sheet.getRange("H13").setValue(terms.advanceAmount);
+    sheet.getRange("H14").setValue(terms.grandTotal);
+    sheet.getRange("H15").setValue(terms.remainingAmount);
+
+  }
+
+  if (typeof refreshQuotationKPIsFromForm === "function") {
+    refreshQuotationKPIsFromForm();
+  }
+
+  if (typeof applyQuotationStatusColor_ === "function") {
+    applyQuotationStatusColor_();
+  }
+}
+
+
+
+function repairQuotationFormButtons() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  if (!sheet) return;
+
+  const buttonCells = [
+    "K4",
+    "K5",
+    "K6",
+    "K7",
+    "K8",
+    "K9",
+    "K10",
+    "K11",
+    "K12",
+    "K13",
+    "K14",
+    "K15"
+  ];
+
+  buttonCells.forEach(function(cell) {
+
+    sheet.getRange(cell)
+      .clearContent()
+      .clearDataValidations()
+      .insertCheckboxes()
+      .setValue(false)
+      .setHorizontalAlignment("center");
+
+  });
+
+  const labels = [
+    ["L4", "➕ Create Quotation"],
+    ["L5", "💾 Add Items"],
+    ["L6", "📤 Submit Review"],
+    ["L7", "✅ Approve"],
+    ["L8", "📧 Send"],
+    ["L9", "🔁 Create Revision"],
+    ["L10", "🏆 Mark Won"],
+    ["L11", "❌ Mark Lost"],
+    ["L12", "🚫 Cancel"],
+    ["L13", "🔄 Refresh"],
+    ["L14", "🧹 Clear Form"],
+    ["L15", "📂 Open Folder"]
+  ];
+
+  labels.forEach(function(row) {
+
+    sheet.getRange(row[0])
+      .setValue(row[1])
+      .setFontWeight("bold");
+
+  });
+
+  refreshQuotationKPIsFromForm();
+
+  SpreadsheetApp.getUi().alert("Quotation buttons repaired ✅");
+}
+
+
+
+
+
+function addQuotationItemsFromGrid() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  const ui = SpreadsheetApp.getUi();
+
+  if (!sheet) {
+    ui.alert("Quotation_Form sheet not found.");
+    return;
+  }
+
+  const qID =
+    sheet.getRange("B6").getValue().toString().trim();
+
+  const revisionNo =
+    sheet.getRange("B7").getValue().toString().trim();
+
+  if (!qID || !revisionNo) {
+    ui.alert("Create or load quotation first.");
+    return;
+  }
+
+  const rows =
+    sheet.getRange("A19:L35").getValues();
+
+  let addedCount = 0;
+
+  rows.forEach(function(row) {
+
+    const description = row[1];
+    const transformerType = row[2];
+    const powerKVA = row[3];
+    const voltage = row[4];
+    const qty = row[5];
+    const unitPrice = row[6];
+    const delivery = row[8];
+    const warranty = row[9];
+    const notes = row[10];
+
+    if (!description) return;
+
+    addQuotationItem({
+
+      qID: qID,
+      revisionNo: revisionNo,
+
+      description: description,
+      transformerType: transformerType,
+      powerKVA: powerKVA,
+      voltage: voltage,
+
+      quantity: qty,
+      unitPrice: unitPrice,
+
+      currency:
+        sheet.getRange("E6").getValue()
+        || CONFIG.CURRENCY.EGP,
+
+      deliveryTime: delivery,
+      warranty: warranty,
+      notes: notes
+
+    });
+
+    addedCount++;
+
+  });
+
+  refreshQuotationForm();
+
+  ui.alert(
+    addedCount + " item(s) added successfully ✅"
+  );
+}
+
+
+
+function createQuotationRevisionFromForm() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  const ui = SpreadsheetApp.getUi();
+
+  if (!sheet) {
+    ui.alert("Quotation_Form sheet not found.");
+    return;
+  }
+
+  const qID =
+    sheet.getRange("B6").getValue().toString().trim();
+
+  if (!qID) {
+    ui.alert("Load quotation first.");
+    return;
+  }
+
+  const response =
+    ui.prompt(
+      "Create Revision",
+      "Please enter revision reason:",
+      ui.ButtonSet.OK_CANCEL
+    );
+
+  if (
+    response.getSelectedButton()
+    !== ui.Button.OK
+  ) {
+    return;
+  }
+
+  const reason =
+    response.getResponseText().trim();
+
+  if (!reason) {
+    ui.alert("Revision reason is required.");
+    return;
+  }
+
+  if (typeof createQuotationRevision !== "function") {
+    ui.alert("createQuotationRevision backend function is not available yet.");
+    return;
+  }
+
+  const result =
+    createQuotationRevision(
+      qID,
+      reason
+    );
+
+  if (!result || !result.success) return;
+
+  sheet.getRange("B7")
+    .setValue(result.revisionNo);
+
+  sheet.getRange("B8")
+    .setValue(CONFIG.QUOTATION_STATUS.REVISED);
+
+  buildRevisionSelectorForForm(qID);
+
+  refreshQuotationForm();
+
+  ui.alert("Revision created successfully ✅"); 
+}
+
+
+
+
+
+function clearQuotationForm() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  if (!sheet) return;
+
+  const clearRanges = [
+
+    "B4:B8",
+    "E4:E8",
+
+    "B11:B14",
+    "E11:E12",
+
+    "H4:H8",
+    "H11:H15",
+
+    "A19:L35"
+
+  ];
+
+  clearRanges.forEach(function(range) {
+
+    sheet.getRange(range)
+      .clearContent();
+
+  });
+
+  const buttonCells = [
+    "K4",
+    "K5",
+    "K6",
+    "K7",
+    "K8",
+    "K9",
+    "K10",
+    "K11",
+    "K12",
+    "K13",
+    "K14",
+    "K15"
+  ];
+
+  buttonCells.forEach(function(cell) {
+
+    sheet.getRange(cell)
+      .setValue(false);
+
+  });
+
+  if (typeof buildQuotationCustomerSelector === "function") {
+    buildQuotationCustomerSelector();
+  }
+
+  if (typeof buildQuotationCurrencySelector === "function") {
+    buildQuotationCurrencySelector();
+  }
+
+  sheet.getRange("B4").activate();
+
+  SpreadsheetApp
+    .getUi()
+    .alert("Quotation Form cleared ✅");
+}
+
+
+
+
+
+function openQuotationFolderFromForm() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  const ui = SpreadsheetApp.getUi();
+
+  if (!sheet) {
+    ui.alert("Quotation_Form sheet not found.");
+    return;
+  }
+
+  const qID =
+    sheet.getRange("B6").getValue().toString().trim();
+
+  if (!qID) {
+    ui.alert("Load quotation first.");
+    return;
+  }
+
+  const quotation =
+    getQuotationById_(qID);
+
+  if (!quotation || !quotation.folderLink) {
+    ui.alert("Quotation folder link not found.");
+    return;
+  }
+
+  const html =
+    HtmlService
+      .createHtmlOutput(
+        '<script>' +
+        'window.open("' + quotation.folderLink + '", "_blank");' +
+        'google.script.host.close();' +
+        '</script>'
+      )
+      .setWidth(100)
+      .setHeight(50);
+
+  ui.showModalDialog(
+    html,
+    "Opening Folder..."
+  );
+}
+
+
+
+
+
+function openRFQFolderFromForm() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  const ui =
+    SpreadsheetApp.getUi();
+
+  if (!sheet) return;
+
+  const qID =
+    sheet.getRange("B6")
+      .getValue()
+      .toString()
+      .trim();
+
+  const revisionNo =
+    sheet.getRange("B7")
+      .getValue()
+      .toString()
+      .trim();
+
+  if (!qID || !revisionNo) {
+    ui.alert("Load quotation first.");
+    return;
+  }
+
+  const quotation =
+    getQuotationById_(qID);
+
+  if (!quotation || !quotation.folderLink) {
+    ui.alert("Quotation folder not found.");
+    return;
+  }
+
+  const quotationFolderId =
+    extractIdFromUrl(quotation.folderLink);
+
+  const quotationFolder =
+    DriveApp.getFolderById(quotationFolderId);
+
+  const revisionFolder =
+    findChildFolderByName_(
+      quotationFolder,
+      revisionNo
+    );
+
+  if (!revisionFolder) {
+    ui.alert("Revision folder not found.");
+    return;
+  }
+
+  const rfqFolder =
+    findChildFolderByName_(
+      revisionFolder,
+      "01 RFQ"
+    );
+
+  if (!rfqFolder) {
+    ui.alert("RFQ folder not found.");
+    return;
+  }
+
+  openUrl_(rfqFolder.getUrl(), "Opening RFQ Folder...");
+}
+
+
+
+
+
+
+function loadQuotationToForm() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  const ui =
+    SpreadsheetApp.getUi();
+
+  if (!sheet) {
+    ui.alert("Quotation_Form sheet not found.");
+    return;
+  }
+
+  const selected =
+    sheet.getRange("B2")
+      .getDisplayValue()
+      .toString()
+      .trim();
+
+  if (!selected || !selected.includes("|")) {
+    ui.alert("Please select a valid quotation.");
+    return;
+  }
+
+  const qID =
+    selected.split("|")[0]
+      .toString()
+      .trim();
+
+  const quotation =
+    getQuotationById_(qID);
+
+  if (!quotation) {
+    ui.alert("Quotation not found.");
+    return;
+  }
+
+  const revisionNo =
+    quotation.currentRevision;
+
+  const terms =
+    getQuotationTerms_(
+      qID,
+      revisionNo
+    );
+
+  // ===============================
+  // HEADER
+  // ===============================
+
+  sheet.getRange("B4").setValue(
+    quotation.customerID +
+    " | " +
+    quotation.customerName
+  );
+
+  sheet.getRange("B5")
+    .setValue(quotation.projectName);
+
+  sheet.getRange("B6")
+    .setValue(quotation.qID);
+
+  sheet.getRange("B7")
+    .setValue(quotation.currentRevision);
+
+  sheet.getRange("B8")
+    .setValue(quotation.status);
+
+  sheet.getRange("E4")
+    .setValue(quotation.rfqDate || "");
+
+  sheet.getRange("E5")
+    .setValue(quotation.assignedTo || "");
+
+  sheet.getRange("E6")
+    .setValue(
+      quotation.currency ||
+      CONFIG.CURRENCY.EGP
+    );
+
+  sheet.getRange("E7")
+    .setValue(quotation.customerRFQLink || "");
+
+  sheet.getRange("E8")
+    .setValue(quotation.notes || "");
+
+  // ===============================
+  // COMMERCIAL TERMS
+  // ===============================
+
+  if (terms) {
+
+    sheet.getRange("B11")
+      .setValue(terms.discountPercent / 100);
+
+    sheet.getRange("B12")
+      .setValue(terms.vatPercent / 100);
+
+    sheet.getRange("B13")
+      .setValue(terms.advancePercent / 100);
+
+    sheet.getRange("B14")
+      .setValue(terms.deliveryTerms);
+
+    sheet.getRange("E11")
+      .setValue(terms.paymentTerms);
+
+    sheet.getRange("E12")
+      .setValue(terms.validityDays);
+  }
+
+  // ===============================
+  // ITEMS
+  // ===============================
+
+  loadQuotationItemsToGrid_(
+    qID,
+    revisionNo
+  );
+
+  // ===============================
+  // REVISION SELECTOR
+  // ===============================
+
+  if (
+    typeof buildRevisionSelectorForForm
+    === "function"
+  ) {
+    buildRevisionSelectorForForm(qID);
+  }
+
+  // ===============================
+  // REFRESH
+  // ===============================
+
+  refreshQuotationForm();
+
+  applyQuotationReadOnlyUI_();
+
+  ui.alert("Quotation loaded ✅");
+}
+
+
+
+
+function loadQuotationItemsToGrid_(
+  qID,
+  revisionNo
+) {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  const itemsSheet =
+    getRequiredSheet_(CONFIG.SHEETS.QUOTATION_ITEMS);
+
+  sheet.getRange("A19:L35").clearContent();
+
+  if (itemsSheet.getLastRow() < 2) return;
+
+  const data =
+    itemsSheet
+      .getRange(
+        2,
+        1,
+        itemsSheet.getLastRow() - 1,
+        19
+      )
+      .getValues();
+
+  const rows = [];
+
+  data.forEach(function(row) {
+
+    if (
+      row[1] === qID &&
+      row[2] === revisionNo
+    ) {
+
+      rows.push([
+        row[3],
+        row[4],
+        row[5],
+        row[6],
+        row[7],
+        row[8],
+        row[9],
+        row[10],
+        row[12],
+        row[13],
+        row[14],
+        ""
+      ]);
+
+    }
+
+  });
+
+  if (rows.length) {
+
+    sheet
+      .getRange(
+        19,
+        1,
+        rows.length,
+        12
+      )
+      .setValues(rows);
+  }
+}
+
+
+
+
+
+
+
+function applyRFQDatePicker() {
+
+  const form =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  if (!form) return;
+
+  const rule =
+    SpreadsheetApp
+      .newDataValidation()
+      .requireDate()
+      .setAllowInvalid(false)
+      .build();
+
+  form.getRange("E4")
+    .clearDataValidations()
+    .setDataValidation(rule)
+    .setNumberFormat("dd/mm/yyyy");
+}
+
+
+
+
+
+
+function applyQuotationReadOnlyUI_() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  if (!sheet) return;
+
+  const status =
+    sheet.getRange("B8").getValue();
+
+  const editable =
+    canEditQuotation_(status);
+
+  const editableRanges = [
+    "B4",
+    "B5",
+    "E4",
+    "E5",
+    "E6",
+    "E7",
+    "E8",
+    "B11:B14",
+    "E11:E12",
+    "A19:L35"
+  ];
+
+  editableRanges.forEach(function(range) {
+
+    sheet.getRange(range)
+      .setBackground(
+        editable
+          ? "#FFFDE7"
+          : "#E5E7E9"
+      );
+
+  });
+
+  sheet.getRange("H8")
+    .setValue(
+      editable
+        ? "Editable"
+        : "Locked"
+    );
+
+  if (typeof applyQuotationStatusColor_ === "function") {
+    applyQuotationStatusColor_();
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
