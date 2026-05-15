@@ -26,7 +26,7 @@ function setupQuotationKPISection() {
     ["J15", "Status Lock", "K15"]
   ];
 
-  kpis.forEach(function(row) {
+  kpis.forEach(function (row) {
 
     sheet.getRange(row[0])
       .setValue(row[1])
@@ -49,8 +49,6 @@ function setupQuotationKPISection() {
 
 
 
-
-
 function refreshQuotationKPIsFromForm() {
 
   const sheet =
@@ -61,13 +59,13 @@ function refreshQuotationKPIsFromForm() {
   if (!sheet) return;
 
   const qID =
-    sheet.getRange("B6").getValue();
+    sheet.getRange("B6").getValue().toString().trim();
 
   const revisionNo =
-    sheet.getRange("B7").getValue();
+    sheet.getRange("B7").getValue().toString().trim();
 
   const status =
-    sheet.getRange("B8").getValue();
+    sheet.getRange("B8").getValue().toString().trim();
 
   const rfqDate =
     sheet.getRange("E4").getValue();
@@ -78,9 +76,11 @@ function refreshQuotationKPIsFromForm() {
   if (qID && revisionNo) {
 
     const itemsSheet =
-      getRequiredSheet_(CONFIG.SHEETS.QUOTATION_ITEMS);
+      SpreadsheetApp
+        .getActiveSpreadsheet()
+        .getSheetByName(CONFIG.SHEETS.QUOTATION_ITEMS);
 
-    if (itemsSheet.getLastRow() >= 2) {
+    if (itemsSheet && itemsSheet.getLastRow() >= 2) {
 
       const data =
         itemsSheet
@@ -88,20 +88,28 @@ function refreshQuotationKPIsFromForm() {
             2,
             1,
             itemsSheet.getLastRow() - 1,
-            11
+            19
           )
           .getValues();
 
-      data.forEach(function(row) {
+      data.forEach(function (row) {
+
+        const itemQID =
+          row[1] ? row[1].toString().trim() : "";
+
+        const itemRevision =
+          row[2] ? row[2].toString().trim() : "";
+
+        const qty =
+          Number(row[8]) || 0;
 
         if (
-          row[1] === qID &&
-          row[2] === revisionNo
+          itemQID === qID &&
+          itemRevision === revisionNo
         ) {
 
           totalItems++;
-
-          totalQty += Number(row[8]) || 0;
+          totalQty += qty;
 
         }
 
@@ -123,23 +131,30 @@ function refreshQuotationKPIsFromForm() {
 
     rfqAge =
       diffDays + " Days";
+
   }
 
+  const lockedStatuses = [
+    "Sent",
+    "Won",
+    "Lost",
+    "Cancelled",
+    "Superseded"
+  ];
+
   const lockStatus =
-    canEditQuotation_(status)
-      ? "Editable"
-      : "Locked";
+    lockedStatuses.includes(status)
+      ? "Locked"
+      : "Editable";
 
   sheet.getRange("H4").setValue(totalItems);
   sheet.getRange("H5").setValue(totalQty);
-  sheet.getRange("H6").setValue(revisionNo || "");
+  sheet.getRange("H6").setValue(revisionNo);
   sheet.getRange("H7").setValue(rfqAge);
   sheet.getRange("H8").setValue(lockStatus);
 
   applyQuotationStatusColor_();
 }
-
-
 
 
 function applyQuotationStatusColor_() {
@@ -152,29 +167,32 @@ function applyQuotationStatusColor_() {
   if (!sheet) return;
 
   const status =
-    sheet.getRange("B8").getValue();
+    sheet.getRange("B8").getValue().toString().trim();
 
-  let color = "#E5E7E9";
+  let statusColor = "#E5E7E9";
 
-  if (status === "Draft") color = "#E5E7EB";
-  if (status === "Under Review") color = "#FDE68A";
-  if (status === "Approved") color = "#BFDBFE";
-  if (status === "Sent") color = "#BBF7D0";
-  if (status === "Negotiation") color = "#DDD6FE";
-  if (status === "Revised") color = "#FDEBD0";
-  if (status === "Won") color = "#86EFAC";
-  if (status === "Lost") color = "#FCA5A5";
-  if (status === "Cancelled") color = "#D1D5DB";
-  if (status === "Superseded") color = "#CBD5E1";
+  if (status === "Draft") statusColor = "#E5E7EB";
+  if (status === "Under Review") statusColor = "#FDE68A";
+  if (status === "Approved") statusColor = "#BFDBFE";
+  if (status === "Sent") statusColor = "#BBF7D0";
+  if (status === "Negotiation") statusColor = "#DDD6FE";
+  if (status === "Revised") statusColor = "#FDEBD0";
+  if (status === "Won") statusColor = "#86EFAC";
+  if (status === "Lost") statusColor = "#FCA5A5";
+  if (status === "Cancelled") statusColor = "#D1D5DB";
+  if (status === "Superseded") statusColor = "#CBD5E1";
 
   sheet.getRange("B8")
-    .setBackground(color)
+    .setBackground(statusColor)
     .setFontWeight("bold")
     .setHorizontalAlignment("center");
 
+  const lockStatus =
+    sheet.getRange("H8").getValue().toString().trim();
+
   sheet.getRange("H8")
     .setBackground(
-      canEditQuotation_(status)
+      lockStatus === "Editable"
         ? "#D5F5E3"
         : "#FADBD8"
     )
