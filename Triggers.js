@@ -1,18 +1,14 @@
-//New
-
 function installedOnEdit(e) {
 
   if (!e) return;
 
-  const ss = e.source;
   const sheet = e.range.getSheet();
   const name = sheet.getName();
   const cell = e.range.getA1Notation();
 
-  // ====================================
+  // =====================
   // CUSTOMER PROFILE
-  // ====================================
-
+  // =====================
   if (name === "Customer_Profile") {
 
     if (cell === "B3") {
@@ -41,10 +37,9 @@ function installedOnEdit(e) {
     }
   }
 
-  // ====================================
+  // =====================
   // REGISTER CUSTOMER
-  // ====================================
-
+  // =====================
   if (name === "Register_Customer") {
 
     if (cell === "F16" && e.range.getValue() === true) {
@@ -66,10 +61,9 @@ function installedOnEdit(e) {
     }
   }
 
-  // ====================================
+  // =====================
   // QUOTATION FORM
-  // ====================================
-
+  // =====================
   if (name === CONFIG.SHEETS.QUOTATION_FORM) {
 
     const qID = sheet.getRange("B6").getValue();
@@ -193,13 +187,3 @@ function installedOnEdit(e) {
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
