@@ -678,6 +678,150 @@ function loadQuotationToForm() {
   );
 
   // ===============================
+  // DIRECT TOTALS + KPIs UPDATE
+  // ===============================
+
+  updateQuotationTotals(qID, revisionNo);
+
+  const updatedTerms =
+    getQuotationTerms_(
+      qID,
+      revisionNo
+    );
+
+  if (updatedTerms) {
+
+    const vatAmount =
+      updatedTerms.grandTotal -
+      updatedTerms.subTotal +
+      (
+        updatedTerms.subTotal *
+        updatedTerms.discountPercent /
+        100
+      );
+
+    sheet.getRange("H11")
+      .setValue(updatedTerms.subTotal);
+
+    sheet.getRange("H12")
+      .setValue(vatAmount);
+
+    sheet.getRange("H13")
+      .setValue(updatedTerms.advanceAmount);
+
+    sheet.getRange("H14")
+      .setValue(updatedTerms.grandTotal);
+
+    sheet.getRange("H15")
+      .setValue(updatedTerms.remainingAmount);
+  }
+
+  // ===============================
+  // DIRECT KPIs UPDATE
+  // ===============================
+
+  let totalItems = 0;
+  let totalQty = 0;
+
+  const itemsSheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(
+        CONFIG.SHEETS.QUOTATION_ITEMS
+      );
+
+  if (
+    itemsSheet &&
+    itemsSheet.getLastRow() >= 2
+  ) {
+
+    const itemsData =
+      itemsSheet
+        .getRange(
+          2,
+          1,
+          itemsSheet.getLastRow() - 1,
+          19
+        )
+        .getValues();
+
+    itemsData.forEach(function (row) {
+
+      const itemQID =
+        row[1] ? row[1].toString().trim() : "";
+
+      const itemRevision =
+        row[2] ? row[2].toString().trim() : "";
+
+      const qty =
+        Number(row[8]) || 0;
+
+      if (
+        itemQID === qID &&
+        itemRevision === revisionNo
+      ) {
+
+        totalItems++;
+        totalQty += qty;
+      }
+    });
+  }
+
+  let rfqAge = "";
+
+  const rfqDate =
+    sheet.getRange("E4").getValue();
+
+  if (rfqDate instanceof Date) {
+
+    const today =
+      new Date();
+
+    const diffDays =
+      Math.floor(
+        (today - rfqDate) /
+        (1000 * 60 * 60 * 24)
+      );
+
+    rfqAge =
+      diffDays + " Days";
+  }
+
+  const lockedStatuses = [
+    "Sent",
+    "Won",
+    "Lost",
+    "Cancelled",
+    "Superseded"
+  ];
+
+  const lockStatus =
+    lockedStatuses.includes(
+      quotation.status
+    )
+      ? "Locked"
+      : "Editable";
+
+  sheet.getRange("H4").setValue(totalItems);
+  sheet.getRange("H5").setValue(totalQty);
+  sheet.getRange("H6").setValue(revisionNo);
+  sheet.getRange("H7").setValue(rfqAge);
+  sheet.getRange("H8").setValue(lockStatus);
+
+  if (typeof applyQuotationStatusColor_ === "function") {
+    applyQuotationStatusColor_();
+  }
+
+  if (typeof applyQuotationReadOnlyUI_ === "function") {
+    applyQuotationReadOnlyUI_();
+  }
+
+  SpreadsheetApp.flush();
+
+  ui.alert("Quotation loaded ✅");
+
+
+  // ===============================
   // REVISION SELECTOR
   // ===============================
 
@@ -694,17 +838,10 @@ function loadQuotationToForm() {
 
   SpreadsheetApp.flush();
 
-  refreshQuotationForm();
 
-  SpreadsheetApp.flush();
+  applyQuotationStatusColor_();
 
-  if (typeof refreshQuotationKPIsFromForm === "function") {
-    refreshQuotationKPIsFromForm();
-  }
-
-  if (typeof applyQuotationReadOnlyUI_ === "function") {
-    applyQuotationReadOnlyUI_();
-  }
+  applyQuotationReadOnlyUI_();
 
   SpreadsheetApp.flush();
 

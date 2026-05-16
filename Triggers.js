@@ -73,6 +73,8 @@ function installedOnEdit(e) {
       SpreadsheetApp.flush();
 
       loadQuotationToForm();
+      refreshQuotationForm();
+
 
       return;
     }
