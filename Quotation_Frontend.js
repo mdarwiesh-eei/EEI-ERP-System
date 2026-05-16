@@ -377,7 +377,7 @@ function clearQuotationForm() {
     "H4:H8",
     "H11:H15",
 
-    "A19:L35"
+    "A20:L35"
 
   ];
 

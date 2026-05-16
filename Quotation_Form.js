@@ -1,5 +1,6 @@
 
-function clearQuotationFormData(){
+/*
+function clearQuotationFormData() {
 
   const form = SpreadsheetApp
     .getActiveSpreadsheet()
@@ -27,4 +28,4 @@ function clearQuotationFormData(){
   form.getRange("A20:F100").clearContent();
   form.getRange("H20:L100").clearContent();
 }
-
+*/
