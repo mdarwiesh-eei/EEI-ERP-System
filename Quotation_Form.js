@@ -18,10 +18,13 @@ function clearQuotationFormData(){
     "D10",
     "H6",
     "H7",
+    "B2",
+    "E2",
+    "H15",  
     "H8"
   ]).clearContent();
 
-  form.getRange("A15:F100").clearContent();
-  form.getRange("H15:L100").clearContent();
+  form.getRange("A20:F100").clearContent();
+  form.getRange("H20:L100").clearContent();
 }
 

@@ -1004,7 +1004,82 @@ function applyQuotationReadOnlyUI_() {
 }
 
 
+function applyQuotationGridBorders_() {
 
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(
+        CONFIG.SHEETS.QUOTATION_FORM
+      );
+
+  if (!sheet) return;
+
+  const startRow = 20;
+  const endRow = 35;
+
+  const range =
+    sheet.getRange(
+      startRow,
+      1,
+      endRow - startRow + 1,
+      12
+    );
+
+  const data =
+    range.getValues();
+
+  for (
+    let i = 0;
+    i < data.length;
+    i++
+  ) {
+
+    const rowData =
+      data[i];
+
+    const hasData =
+      rowData.some(
+        cell =>
+          cell !== "" &&
+          cell !== null
+      );
+
+    const rowRange =
+      sheet.getRange(
+        startRow + i,
+        1,
+        1,
+        12
+      );
+
+    if (hasData) {
+
+      rowRange.setBorder(
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      );
+
+    } else {
+
+      rowRange.setBorder(
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      );
+
+    }
+
+  }
+
+}
 
 
 

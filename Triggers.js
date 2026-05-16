@@ -66,6 +66,16 @@ function installedOnEdit(e) {
   // =====================
   if (name === CONFIG.SHEETS.QUOTATION_FORM) {
 
+
+    if (
+      e.range.getRow() >= 20 &&
+      e.range.getRow() <= 35
+    ) {
+
+      applyQuotationGridBorders_();
+
+    }
+
     const qID = sheet.getRange("B6").getValue();
 
     if (cell === "K2" && e.range.getValue() === true) {
