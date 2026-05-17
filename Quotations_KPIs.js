@@ -157,48 +157,120 @@ function refreshQuotationKPIsFromForm() {
 }
 
 
-function applyQuotationStatusColor_() {
+function refreshQuotationKPIsFromForm() {
+
+  const ss =
+    SpreadsheetApp.getActiveSpreadsheet();
 
   const sheet =
-    SpreadsheetApp
-      .getActiveSpreadsheet()
-      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+    ss.getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
 
   if (!sheet) return;
 
+  const values =
+    sheet.getRange("B6:B8")
+      .getValues();
+
+  const qID =
+    values[0][0]
+      ? values[0][0].toString().trim()
+      : "";
+
+  const revisionNo =
+    values[1][0]
+      ? values[1][0].toString().trim()
+      : "";
+
   const status =
-    sheet.getRange("B8").getValue().toString().trim();
+    values[2][0]
+      ? values[2][0].toString().trim()
+      : "";
 
-  let statusColor = "#E5E7E9";
+  const rfqDate =
+    sheet.getRange("E4").getValue();
 
-  if (status === "Draft") statusColor = "#E5E7EB";
-  if (status === "Under Review") statusColor = "#FDE68A";
-  if (status === "Approved") statusColor = "#BFDBFE";
-  if (status === "Sent") statusColor = "#BBF7D0";
-  if (status === "Negotiation") statusColor = "#DDD6FE";
-  if (status === "Revised") statusColor = "#FDEBD0";
-  if (status === "Won") statusColor = "#86EFAC";
-  if (status === "Lost") statusColor = "#FCA5A5";
-  if (status === "Cancelled") statusColor = "#D1D5DB";
-  if (status === "Superseded") statusColor = "#CBD5E1";
+  let totalItems = 0;
+  let totalQty = 0;
 
-  sheet.getRange("B8")
-    .setBackground(statusColor)
-    .setFontWeight("bold")
-    .setHorizontalAlignment("center");
+  if (qID && revisionNo) {
+
+    const itemsSheet =
+      ss.getSheetByName(CONFIG.SHEETS.QUOTATION_ITEMS);
+
+    if (
+      itemsSheet &&
+      itemsSheet.getLastRow() >= 2
+    ) {
+
+      const data =
+        itemsSheet
+          .getRange(
+            2,
+            1,
+            itemsSheet.getLastRow() - 1,
+            19
+          )
+          .getValues();
+
+      data.forEach(function(row) {
+
+        const itemQID =
+          row[1] ? row[1].toString().trim() : "";
+
+        const itemRevision =
+          row[2] ? row[2].toString().trim() : "";
+
+        if (
+          itemQID === qID &&
+          itemRevision === revisionNo
+        ) {
+          totalItems++;
+          totalQty += Number(row[8]) || 0;
+        }
+      });
+    }
+  }
+
+  let rfqAge = "";
+
+  if (rfqDate instanceof Date) {
+
+    const today =
+      new Date();
+
+    const diffDays =
+      Math.floor(
+        (today - rfqDate) /
+        (1000 * 60 * 60 * 24)
+      );
+
+    rfqAge =
+      diffDays + " Days";
+  }
+
+  const lockedStatuses = [
+    "Sent",
+    "Won",
+    "Lost",
+    "Cancelled",
+    "Superseded"
+  ];
 
   const lockStatus =
-    sheet.getRange("H8").getValue().toString().trim();
+    lockedStatuses.includes(status)
+      ? "Locked"
+      : "Editable";
 
-  sheet.getRange("H8")
-    .setBackground(
-      lockStatus === "Editable"
-        ? "#D5F5E3"
-        : "#FADBD8"
-    )
-    .setFontWeight("bold")
-    .setHorizontalAlignment("center");
+  sheet.getRange("H4:H8")
+    .setValues([
+      [totalItems],
+      [totalQty],
+      [revisionNo],
+      [rfqAge],
+      [lockStatus]
+    ]);
 }
+
 
 
 

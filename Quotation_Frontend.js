@@ -864,7 +864,7 @@ function loadQuotationItemsToGrid_(
   const itemsSheet =
     getRequiredSheet_(CONFIG.SHEETS.QUOTATION_ITEMS);
 
-  sheet.getRange("A19:L35").clearContent();
+  sheet.getRange("A20:L35").clearContent();
 
   if (itemsSheet.getLastRow() < 2) return;
 
@@ -874,7 +874,7 @@ function loadQuotationItemsToGrid_(
         2,
         1,
         itemsSheet.getLastRow() - 1,
-        19
+        20
       )
       .getValues();
 
@@ -904,13 +904,15 @@ function loadQuotationItemsToGrid_(
 
     }
 
+    applyQuotationGridBorders_()
+
   });
 
   if (rows.length) {
 
     sheet
       .getRange(
-        19,
+        20,
         1,
         rows.length,
         12
@@ -949,9 +951,6 @@ function applyRFQDatePicker() {
 
 
 
-
-
-
 function applyQuotationReadOnlyUI_() {
 
   const sheet =
@@ -962,34 +961,13 @@ function applyQuotationReadOnlyUI_() {
   if (!sheet) return;
 
   const status =
-    sheet.getRange("B8").getValue();
+    sheet.getRange("B8")
+      .getValue()
+      .toString()
+      .trim();
 
   const editable =
     canEditQuotation_(status);
-
-  const editableRanges = [
-    "B4",
-    "B5",
-    "E4",
-    "E5",
-    "E6",
-    "E7",
-    "E8",
-    "B11:B14",
-    "E11:E12",
-    "A19:L35"
-  ];
-
-  editableRanges.forEach(function (range) {
-
-    sheet.getRange(range)
-      .setBackground(
-        editable
-          ? "#FFFDE7"
-          : "#E5E7E9"
-      );
-
-  });
 
   sheet.getRange("H8")
     .setValue(
@@ -997,15 +975,14 @@ function applyQuotationReadOnlyUI_() {
         ? "Editable"
         : "Locked"
     );
-
-  if (typeof applyQuotationStatusColor_ === "function") {
-    applyQuotationStatusColor_();
-  }
 }
 
 
 function applyQuotationGridBorders_() {
 
+  return; // Disable grid borders for now as they cause performance issues with larger item lists. Can be optimized later if needed.      
+
+  
   const sheet =
     SpreadsheetApp
       .getActiveSpreadsheet()
