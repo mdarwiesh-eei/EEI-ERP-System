@@ -827,10 +827,12 @@ function loadQuotationToForm() {
   sheet.getRange("H8").setValue(lockStatus);
 
   if (typeof applyQuotationStatusColor_ === "function") {
+    return; // Skip applying status color for now to improve performance. Can be optimized later if needed.
     applyQuotationStatusColor_();
   }
 
   if (typeof applyQuotationReadOnlyUI_ === "function") {
+    return; // Skip applying read-only UI for now to improve performance. Can be optimized later if needed.
     applyQuotationReadOnlyUI_();
   }
 
