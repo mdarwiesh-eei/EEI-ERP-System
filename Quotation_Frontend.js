@@ -998,6 +998,7 @@ function applyQuotationReadOnlyUI_() {
 }
 
 
+
 function applyQuotationGridBorders_() {
 
   return; // Disable grid borders for now as they cause performance issues with larger item lists. Can be optimized later if needed.      

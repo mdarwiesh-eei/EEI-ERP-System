@@ -167,23 +167,23 @@ function refreshQuotationKPIsFromForm() {
 
   if (!sheet) return;
 
-  const values =
+  const headerValues =
     sheet.getRange("B6:B8")
       .getValues();
 
   const qID =
-    values[0][0]
-      ? values[0][0].toString().trim()
+    headerValues[0][0]
+      ? headerValues[0][0].toString().trim()
       : "";
 
   const revisionNo =
-    values[1][0]
-      ? values[1][0].toString().trim()
+    headerValues[1][0]
+      ? headerValues[1][0].toString().trim()
       : "";
 
   const status =
-    values[2][0]
-      ? values[2][0].toString().trim()
+    headerValues[2][0]
+      ? headerValues[2][0].toString().trim()
       : "";
 
   const rfqDate =
@@ -224,6 +224,7 @@ function refreshQuotationKPIsFromForm() {
           itemQID === qID &&
           itemRevision === revisionNo
         ) {
+
           totalItems++;
           totalQty += Number(row[8]) || 0;
         }
@@ -248,18 +249,10 @@ function refreshQuotationKPIsFromForm() {
       diffDays + " Days";
   }
 
-  const lockedStatuses = [
-    "Sent",
-    "Won",
-    "Lost",
-    "Cancelled",
-    "Superseded"
-  ];
-
   const lockStatus =
-    lockedStatuses.includes(status)
-      ? "Locked"
-      : "Editable";
+    canEditQuotation_(status)
+      ? "Editable"
+      : "Locked";
 
   sheet.getRange("H4:H8")
     .setValues([
