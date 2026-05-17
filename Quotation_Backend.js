@@ -120,7 +120,7 @@ function createQuotation(data) {
       qID,
       revisionNo,
       data.currency || CONFIG.CURRENCY.EGP
-    );  
+    );
 
 
 
@@ -130,13 +130,13 @@ function createQuotation(data) {
     // ===============================
 
     logQuotationStatus_(
-    qID,
-    revisionNo,
-    "",
-    status,
-    "Quotation created",
-    "Initial draft created"
-  );
+      qID,
+      revisionNo,
+      "",
+      status,
+      "Quotation created",
+      "Initial draft created"
+    );
 
     // ===============================
     // AUDIT LOG
@@ -250,7 +250,7 @@ function generateQuotationId_() {
 
   let maxNo = 0;
 
-  ids.forEach(function(id) {
+  ids.forEach(function (id) {
 
     const match =
       id.toString().match(/Q-(\d+)/);
@@ -585,36 +585,36 @@ function addQuotationItem(data) {
 
     if (typeof logAction === "function") {
 
-  logAction({
+      logAction({
 
-    module: "Quotations",
+        module: "Quotations",
 
-    action: "ADD_ITEM",
+        action: "ADD_ITEM",
 
-    recordID: itemID,
+        recordID: itemID,
 
-    field: "Quotation Item",
+        field: "Quotation Item",
 
-    oldValue: "",
+        oldValue: "",
 
-    newValue:
-      data.description +
-      " | Qty: " +
-      quantity +
-      " | Unit Price: " +
-      unitPrice +
-      " | Total: " +
-      totalPrice,
+        newValue:
+          data.description +
+          " | Qty: " +
+          quantity +
+          " | Unit Price: " +
+          unitPrice +
+          " | Total: " +
+          totalPrice,
 
-    notes:
-      "Item added to " +
-      data.qID +
-      " revision " +
-      revisionNo
+        notes:
+          "Item added to " +
+          data.qID +
+          " revision " +
+          revisionNo
 
-  });
+      });
 
-}
+    }
 
     return {
       success: true,
@@ -818,7 +818,7 @@ function getNextQuotationLineNo_(
 
   let maxLine = 0;
 
-  data.forEach(function(row) {
+  data.forEach(function (row) {
 
     const existingQID = row[0];
     const existingRevision = row[1];
@@ -900,7 +900,7 @@ function updateQuotationTotals(
         11
       ).getValues();
 
-    itemsData.forEach(function(row) {
+    itemsData.forEach(function (row) {
 
       const itemQID = row[1];
       const itemRevision = row[2];
@@ -985,8 +985,257 @@ function updateQuotationTotals(
 
 
 
+function addQuotationItemsBatch(data) {
+
+  const lock =
+    LockService.getScriptLock();
+
+  lock.waitLock(30000);
+
+  try {
+
+    validateAddQuotationItemsBatchInput_(data);
+
+    const ss =
+      SpreadsheetApp.getActiveSpreadsheet();
+
+    const itemsSheet =
+      getRequiredSheet_(
+        CONFIG.SHEETS.QUOTATION_ITEMS
+      );
+
+    const quotation =
+      getQuotationById_(data.qID);
+
+    if (!quotation) {
+      throw new Error("Quotation not found.");
+    }
+
+    if (!canEditQuotation_(quotation.status)) {
+      throw new Error(
+        "Editing is not allowed for status: " +
+        quotation.status
+      );
+    }
+
+    const revisionNo =
+      data.revisionNo ||
+      quotation.currentRevision;
+
+    const now =
+      new Date();
+
+    const user =
+      getCurrentUserName();
+
+    let maxLine = 0;
+
+    if (itemsSheet.getLastRow() >= 2) {
+
+      const existing =
+        itemsSheet
+          .getRange(
+            2,
+            2,
+            itemsSheet.getLastRow() - 1,
+            3
+          )
+          .getValues();
+
+      existing.forEach(function (row) {
+
+        const existingQID = row[0];
+        const existingRevision = row[1];
+        const lineNo = Number(row[2]) || 0;
+
+        if (
+          existingQID === data.qID &&
+          existingRevision === revisionNo
+        ) {
+          maxLine =
+            Math.max(maxLine, lineNo);
+        }
+
+      });
+    }
+
+    const rowsToInsert = [];
+
+    data.items.forEach(function (item, index) {
+
+      const quantity =
+        Number(item.quantity);
+
+      const unitPrice =
+        Number(item.unitPrice);
+
+      if (
+        !item.description ||
+        isNaN(quantity) ||
+        quantity <= 0 ||
+        isNaN(unitPrice) ||
+        unitPrice <= 0
+      ) {
+        throw new Error(
+          "Invalid item data at line " +
+          (index + 1)
+        );
+      }
+
+      const lineNo =
+        maxLine + index + 1;
+
+      const itemID =
+        data.qID +
+        "-" +
+        revisionNo +
+        "-L" +
+        ("00" + lineNo).slice(-2);
+
+      const totalPrice =
+        quantity * unitPrice;
+
+      rowsToInsert.push([
+
+        itemID,
+        data.qID,
+        revisionNo,
+        lineNo,
+
+        item.description,
+        item.transformerType || "",
+        item.powerKVA || "",
+        item.voltage || "",
+
+        quantity,
+        unitPrice,
+        totalPrice,
+
+        item.currency ||
+        quotation.currency ||
+        CONFIG.CURRENCY.EGP,
+
+        item.deliveryTime || "",
+        item.warranty || "",
+        item.notes || "",
+
+        now,
+        user,
+        now,
+        user
+
+      ]);
+
+    });
+
+    if (!rowsToInsert.length) {
+      throw new Error("No valid items to add.");
+    }
+
+    const nextRow =
+      itemsSheet.getLastRow() < 2
+        ? 2
+        : itemsSheet.getLastRow() + 1;
+
+    itemsSheet
+      .getRange(
+        nextRow,
+        1,
+        rowsToInsert.length,
+        19
+      )
+      .setValues(rowsToInsert);
+
+    updateQuotationTotals(
+      data.qID,
+      revisionNo
+    );
+
+    if (typeof logAction === "function") {
+
+      logAction({
+
+        module: "Quotations",
+
+        action: "ADD_ITEMS_BATCH",
+
+        recordID:
+          data.qID + "-" + revisionNo,
+
+        field: "Quotation Items",
+
+        oldValue: "",
+
+        newValue:
+          rowsToInsert.length +
+          " item(s) added",
+
+        notes:
+          "Batch add items to " +
+          data.qID +
+          " revision " +
+          revisionNo
+
+      });
+
+    }
+
+    return {
+
+      success: true,
+
+      qID: data.qID,
+
+      revisionNo: revisionNo,
+
+      addedCount: rowsToInsert.length
+
+    };
+
+  }
+
+  catch (err) {
+
+    SpreadsheetApp
+      .getUi()
+      .alert(
+        "Add Quotation Items Batch Error: " +
+        err.message
+      );
+
+    Logger.log(err);
+
+    return {
+      success: false,
+      error: err.message
+    };
+
+  }
+
+  finally {
+
+    lock.releaseLock();
+
+  }
+}
 
 
+function validateAddQuotationItemsBatchInput_(data) {
 
+  if (!data) {
+    throw new Error("Missing batch item data.");
+  }
 
+  if (!data.qID) {
+    throw new Error("Quotation ID is required.");
+  }
+
+  if (
+    !data.items ||
+    !Array.isArray(data.items) ||
+    data.items.length === 0
+  ) {
+    throw new Error("No items provided.");
+  }
+}
 

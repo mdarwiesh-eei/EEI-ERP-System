@@ -200,17 +200,16 @@ function repairQuotationFormButtons() {
 }
 
 
-
-
-
 function addQuotationItemsFromGrid() {
 
-  const sheet =
-    SpreadsheetApp
-      .getActiveSpreadsheet()
-      .getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+  const ss =
+    SpreadsheetApp.getActiveSpreadsheet();
 
-  const ui = SpreadsheetApp.getUi();
+  const sheet =
+    ss.getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+
+  const ui =
+    SpreadsheetApp.getUi();
 
   if (!sheet) {
     ui.alert("Quotation_Form sheet not found.");
@@ -218,10 +217,22 @@ function addQuotationItemsFromGrid() {
   }
 
   const qID =
-    sheet.getRange("B6").getValue().toString().trim();
+    sheet.getRange("B6")
+      .getValue()
+      .toString()
+      .trim();
 
   const revisionNo =
-    sheet.getRange("B7").getValue().toString().trim();
+    sheet.getRange("B7")
+      .getValue()
+      .toString()
+      .trim();
+
+  const currency =
+    sheet.getRange("E6")
+      .getValue()
+      .toString()
+      .trim() || CONFIG.CURRENCY.EGP;
 
   if (!qID || !revisionNo) {
     ui.alert("Create or load quotation first.");
@@ -229,58 +240,65 @@ function addQuotationItemsFromGrid() {
   }
 
   const rows =
-    sheet.getRange("A19:L35").getValues();
+    sheet.getRange("A20:L35")
+      .getValues();
 
-  let addedCount = 0;
+  const items = [];
 
-  rows.forEach(function (row) {
+  rows.forEach(function(row) {
 
-    const description = row[1];
-    const transformerType = row[2];
-    const powerKVA = row[3];
-    const voltage = row[4];
-    const qty = row[5];
-    const unitPrice = row[6];
-    const delivery = row[8];
-    const warranty = row[9];
-    const notes = row[10];
+    const description =
+      row[1] ? row[1].toString().trim() : "";
 
     if (!description) return;
 
-    addQuotationItem({
-
-      qID: qID,
-      revisionNo: revisionNo,
+    items.push({
 
       description: description,
-      transformerType: transformerType,
-      powerKVA: powerKVA,
-      voltage: voltage,
 
-      quantity: qty,
-      unitPrice: unitPrice,
+      transformerType: row[2] || "",
 
-      currency:
-        sheet.getRange("E6").getValue()
-        || CONFIG.CURRENCY.EGP,
+      powerKVA: row[3] || "",
 
-      deliveryTime: delivery,
-      warranty: warranty,
-      notes: notes
+      voltage: row[4] || "",
+
+      quantity: row[5],
+
+      unitPrice: row[6],
+
+      currency: currency,
+
+      deliveryTime: row[8] || "",
+
+      warranty: row[9] || "",
+
+      notes: row[10] || ""
 
     });
 
-    addedCount++;
-
   });
+
+  if (!items.length) {
+    ui.alert("No items found in the grid.");
+    return;
+  }
+
+  const result =
+    addQuotationItemsBatch({
+      qID: qID,
+      revisionNo: revisionNo,
+      items: items
+    });
+
+  if (!result || !result.success) return;
 
   refreshQuotationForm();
 
   ui.alert(
-    addedCount + " item(s) added successfully ✅"
+    result.addedCount +
+    " item(s) added successfully ✅"
   );
 }
-
 
 
 function createQuotationRevisionFromForm() {
