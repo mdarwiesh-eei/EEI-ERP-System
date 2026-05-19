@@ -525,6 +525,12 @@ function addQuotationItem(data) {
     const revisionNo =
       data.revisionNo || quotation.currentRevision;
 
+    validateQuotationDatabaseStructure_();
+
+    if (isDuplicateQuotationItem_(data.qID, revisionNo, data)) {
+      throw new Error("This item already exists in this quotation revision.");
+    }
+
     const lineNo =
       getNextQuotationLineNo_(
         data.qID,
@@ -566,7 +572,12 @@ function addQuotationItem(data) {
       now,
       user,
       now,
-      user
+      user,
+      "Active",
+      "",
+      "",
+      "",
+      ""
     ]];
 
     const nextRow =
@@ -575,7 +586,7 @@ function addQuotationItem(data) {
         : itemsSheet.getLastRow() + 1;
 
     itemsSheet
-      .getRange(nextRow, 1, 1, 19)
+      .getRange(nextRow, 1, 1, 24)
       .setValues(rowData);
 
     updateQuotationTotals(
@@ -1022,6 +1033,8 @@ function addQuotationItemsBatch(data) {
       data.revisionNo ||
       quotation.currentRevision;
 
+    validateQuotationDatabaseStructure_();
+
     const now =
       new Date();
 
@@ -1095,6 +1108,10 @@ function addQuotationItemsBatch(data) {
       const totalPrice =
         quantity * unitPrice;
 
+      if (isDuplicateQuotationItem_(data.qID, revisionNo, item)) {
+        throw new Error("Duplicate item found: " + item.description);
+      }
+
       rowsToInsert.push([
 
         itemID,
@@ -1122,7 +1139,12 @@ function addQuotationItemsBatch(data) {
         now,
         user,
         now,
-        user
+        user,
+        "Active",
+        "",
+        "",
+        "",
+        ""
 
       ]);
 
@@ -1142,7 +1164,7 @@ function addQuotationItemsBatch(data) {
         nextRow,
         1,
         rowsToInsert.length,
-        19
+        24
       )
       .setValues(rowsToInsert);
 
