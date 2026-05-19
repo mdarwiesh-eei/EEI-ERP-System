@@ -1,675 +1,330 @@
+// @ts-nocheck
+/*****************************************************
+ EEI REVISION CONTROL
+*****************************************************/
 
-//--------------------------------//
-//-----UPDATE REVISIONS TOTALS----//
-//--------------------------------//
+function createQuotationRevision(qID){
 
-function updateRevisionTotals_(
-  qID,
-  revisionNo,
-  subTotal,
-  discountPercent,
-  vatPercent,
-  grandTotal
-) {
+const lock=LockService.getScriptLock();
+lock.waitLock(30000);
 
-  const sheet =
-    getRequiredSheet_(
-      CONFIG.SHEETS.QUOTATION_REVISIONS
-    );
+try{
 
-  if (sheet.getLastRow() < 2) return;
+const quotation=getQuotationById_(qID);
 
-  const data =
-    sheet
-      .getRange(
-        2,
-        1,
-        sheet.getLastRow() - 1,
-        20
-      )
-      .getValues();
+if(!quotation){
+throw new Error("Quotation not found");
+}
 
-  for (let i = 0; i < data.length; i++) {
+if(
+quotation.recordStatus==="Archived"
+){
+throw new Error(
+"Archived quotation cannot create revisions"
+);
+}
 
-    if (
-      data[i][1] === qID &&
-      data[i][2] === revisionNo
-    ) {
+const oldRevision=
+quotation.currentRevision;
 
-      const row = i + 2;
+const newRevision=
+generateNextRevisionNo_(oldRevision);
 
-      sheet.getRange(row, 10)
-        .setValue(subTotal);
+const revisions=
+getRequiredSheet_(
+CONFIG.SHEETS.QUOTATION_REVISIONS
+);
 
-      sheet.getRange(row, 11)
-        .setValue(discountPercent);
+const items=
+getRequiredSheet_(
+CONFIG.SHEETS.QUOTATION_ITEMS
+);
 
-      sheet.getRange(row, 12)
-        .setValue(vatPercent);
+const terms=
+getRequiredSheet_(
+CONFIG.SHEETS.QUOTATION_TERMS
+);
 
-      sheet.getRange(row, 13)
-        .setValue(grandTotal);
+const now=new Date();
+const user=getCurrentUserName();
 
-      return;
-    }
-  }
+copyRevisionItems_(
+qID,
+oldRevision,
+newRevision
+);
+
+copyRevisionTerms_(
+qID,
+oldRevision,
+newRevision
+);
+
+const revisionID=
+qID+"-"+newRevision;
+
+revisions
+.getRange(
+getNextDataRow_(revisions),
+1,
+1,
+20
+)
+.setValues([[
+revisionID,
+qID,
+newRevision,
+CONFIG.QUOTATION_STATUS.DRAFT,
+"Revision created",
+now,
+user,
+oldRevision,
+"",
+0,
+0,
+0,
+0,
+"",
+"",
+"",
+"",
+"",
+true,
+""
+]]);
+
+const quotations=
+getRequiredSheet_(
+CONFIG.SHEETS.QUOTATIONS
+);
+
+quotations
+.getRange(
+quotation.row,
+5
+)
+.setValue(
+newRevision
+);
+
+quotations
+.getRange(
+quotation.row,
+19
+)
+.setValue(now);
+
+quotations
+.getRange(
+quotation.row,
+20
+)
+.setValue(user);
+
+logQuotationStatus_(
+qID,
+newRevision,
+oldRevision,
+newRevision,
+"Revision",
+"Revision created"
+);
+
+return{
+success:true,
+revision:newRevision
+};
+
+}
+catch(err){
+
+SpreadsheetApp
+.getUi()
+.alert(err.message);
+
+return{
+success:false,
+error:err.message
+};
+
+}
+finally{
+lock.releaseLock();
+}
+
 }
 
 
+/*****************************************************
+COPY ITEMS
+*****************************************************/
 
+function copyRevisionItems_(
+qID,
+oldRevision,
+newRevision
+){
 
-function createQuotationRevision(qID, revisionReason) {
+const sheet=
+getRequiredSheet_(
+CONFIG.SHEETS.QUOTATION_ITEMS
+);
 
-  const lock =
-    LockService.getScriptLock();
+if(sheet.getLastRow()<2){
+return;
+}
 
-  lock.waitLock(30000);
+const data=
+sheet
+.getRange(
+2,
+1,
+sheet.getLastRow()-1,
+24
+)
+.getValues();
 
-  try {
+const rows=[];
 
-    if (!qID) {
-      throw new Error("Quotation ID is required.");
-    }
-
-    if (!revisionReason) {
-      throw new Error("Revision reason is required.");
-    }
-
-    const quotation =
-      getQuotationById_(qID);
-
-    if (!quotation) {
-      throw new Error("Quotation not found.");
-    }
-
-    const allowedStatuses = [
-      CONFIG.QUOTATION_STATUS.SENT,
-      CONFIG.QUOTATION_STATUS.NEGOTIATION
-    ];
-
-    if (!allowedStatuses.includes(quotation.status)) {
-      throw new Error(
-        "Revision can be created only from Sent or Negotiation status."
-      );
-    }
-
-    const oldRevision =
-      quotation.currentRevision;
-
-    const newRevision =
-      getNextRevisionNo_(qID);
-
-    const newRevisionID =
-      qID + "-" + newRevision;
-
-    const now =
-      new Date();
-
-    const user =
-      getCurrentUserName();
-
-    const quotationsSheet =
-      getRequiredSheet_(CONFIG.SHEETS.QUOTATIONS);
-
-    const revisionsSheet =
-      getRequiredSheet_(CONFIG.SHEETS.QUOTATION_REVISIONS);
-
-    // ===============================
-    // CREATE REVISION FOLDER
-    // ===============================
-
-    const revisionFolderLink =
-      createRevisionFolder_(
-        quotation.folderLink,
-        newRevision
-      );
-
-    // ===============================
-    // MARK OLD REVISIONS NOT CURRENT
-    // ===============================
-
-    markOldRevisionsAsNotCurrent_(qID);
-
-    updateRevisionStatus_(
-      qID,
-      oldRevision,
-      CONFIG.QUOTATION_STATUS.SUPERSEDED
-    );
-
-    // ===============================
-    // COPY OLD TERMS
-    // ===============================
-
-    const oldTerms =
-      getQuotationTerms_(
-        qID,
-        oldRevision
-      );
-
-    // ===============================
-    // CREATE NEW REVISION RECORD
-    // ===============================
-
-    const newRevisionRow = [[
-
-      newRevisionID,
-      qID,
-      newRevision,
-      CONFIG.QUOTATION_STATUS.REVISED,
-      revisionReason,
-      now,
-      user,
-      "",
-      "",
-      oldTerms ? oldTerms.subTotal : 0,
-      oldTerms ? oldTerms.discountPercent / 100 : 0,
-      oldTerms ? oldTerms.vatPercent / 100 : 0,
-      oldTerms ? oldTerms.grandTotal : 0,
-      revisionFolderLink,
-      "",
-      "",
-      "",
-      "",
-      true,
-      "Created from " + oldRevision
-
-    ]];
-
-    const nextRevRow =
-      revisionsSheet.getLastRow() < 2
-        ? 2
-        : revisionsSheet.getLastRow() + 1;
-
-    revisionsSheet
-      .getRange(
-        nextRevRow,
-        1,
-        1,
-        20
-      )
-      .setValues(newRevisionRow);
-
-    // ===============================
-    // COPY ITEMS FROM OLD REVISION
-    // ===============================
-
-    copyQuotationItemsToNewRevision_(
-      qID,
-      oldRevision,
-      newRevision
-    );
-
-    // ===============================
-    // COPY TERMS FROM OLD REVISION
-    // ===============================
-
-    copyQuotationTermsToNewRevision_(
-      qID,
-      oldRevision,
-      newRevision
-    );
-
-    // ===============================
-    // UPDATE MASTER
-    // ===============================
-
-    quotationsSheet
-      .getRange(
-        quotation.row,
-        5
-      )
-      .setValue(newRevision);
-
-    quotationsSheet
-      .getRange(
-        quotation.row,
-        6
-      )
-      .setValue(CONFIG.QUOTATION_STATUS.REVISED);
-
-    quotationsSheet
-      .getRange(
-        quotation.row,
-        19
-      )
-      .setValue(now);
+data.forEach(function(r){
 
-    quotationsSheet
-      .getRange(
-        quotation.row,
-        20
-      )
-      .setValue(user);
+const itemQID=r[1];
+const itemRevision=r[2];
+const itemStatus=r[19]||"Active";
 
-    // ===============================
-    // RECALCULATE TOTALS
-    // ===============================
+if(
+itemQID===qID &&
+itemRevision===oldRevision &&
+itemStatus!=="Deleted"
+){
 
-    updateQuotationTotals(
-      qID,
-      newRevision
-    );
+const lineNo=r[3];
 
-    // ===============================
-    // STATUS LOG
-    // ===============================
+const newItemID=
+qID+
+"-"+
+newRevision+
+"-L"+
+("00"+lineNo)
+.slice(-2);
 
-    logQuotationStatus_(
-      qID,
-      newRevision,
-      quotation.status,
-      CONFIG.QUOTATION_STATUS.REVISED,
-      revisionReason,
-      "New revision created from " + oldRevision
-    );
+const row=[...r];
 
-    // ===============================
-    // AUDIT LOG
-    // ===============================
+row[0]=newItemID;
+row[2]=newRevision;
 
-    if (typeof logAction === "function") {
+row[15]=new Date();
+row[16]=getCurrentUserName();
 
-      logAction({
+row[17]=new Date();
+row[18]=getCurrentUserName();
 
-        module: "Quotations",
+row[19]="Active";
 
-        action: "CREATE_REVISION",
+row[20]="";
+row[21]="";
+row[22]="";
+row[23]="";
 
-        recordID: qID,
+rows.push(row);
 
-        field: "Revision",
+}
 
-        oldValue: oldRevision,
+});
 
-        newValue: newRevision,
+if(rows.length){
 
-        notes:
-          revisionReason +
-          " | Folder: " +
-          revisionFolderLink
+sheet
+.getRange(
+sheet.getLastRow()+1,
+1,
+rows.length,
+24
+)
+.setValues(rows);
 
-      });
+}
 
-    }
-
-    return {
-
-      success: true,
-
-      qID: qID,
-
-      oldRevision: oldRevision,
-
-      revisionNo: newRevision,
-
-      revisionFolderLink: revisionFolderLink
-
-    };
-
-  }
-
-  catch (err) {
-
-    SpreadsheetApp
-      .getUi()
-      .alert(
-        "Create Revision Error: " +
-        err.message
-      );
-
-    Logger.log(err);
-
-    return {
-      success: false,
-      error: err.message
-    };
-
-  }
-
-  finally {
-
-    lock.releaseLock();
-
-  }
 }
 
 
+/*****************************************************
+COPY TERMS
+*****************************************************/
 
+function copyRevisionTerms_(
+qID,
+oldRevision,
+newRevision
+){
 
+const terms=
+getRequiredSheet_(
+CONFIG.SHEETS.QUOTATION_TERMS
+);
 
-function createRevisionFolder_(
-  quotationFolderLink,
-  revisionNo
-) {
+if(terms.getLastRow()<2){
+return;
+}
 
-  if (!quotationFolderLink) {
-    throw new Error("Quotation folder link is missing.");
-  }
+const data=
+terms
+.getRange(
+2,
+1,
+terms.getLastRow()-1,
+terms.getLastColumn()
+)
+.getValues();
 
-  const quotationFolderId =
-    extractIdFromUrl(quotationFolderLink);
+for(let i=0;i<data.length;i++){
 
-  if (!quotationFolderId) {
-    throw new Error("Invalid quotation folder link.");
-  }
+if(
+data[i][1]===qID &&
+data[i][2]===oldRevision
+){
 
-  const quotationFolder =
-    DriveApp.getFolderById(
-      quotationFolderId
-    );
+const row=[...data[i]];
 
-  let revisionFolder =
-    findChildFolderByName_(
-      quotationFolder,
-      revisionNo
-    );
+row[2]=newRevision;
 
-  if (!revisionFolder) {
+row[16]=new Date();
+row[17]=getCurrentUserName();
 
-    revisionFolder =
-      quotationFolder.createFolder(
-        revisionNo
-      );
+terms
+.getRange(
+terms.getLastRow()+1,
+1,
+1,
+row.length
+)
+.setValues([row]);
 
-  }
+return;
 
-  const subFolders = [
-    "01 RFQ",
-    "02 Technical Offer",
-    "03 Commercial Offer",
-    "04 Client Comments",
-    "05 Revisions"
-  ];
+}
 
-  subFolders.forEach(function(folderName) {
+}
 
-    let child =
-      findChildFolderByName_(
-        revisionFolder,
-        folderName
-      );
-
-    if (!child) {
-      revisionFolder.createFolder(folderName);
-    }
-
-  });
-
-  return revisionFolder.getUrl();
 }
 
 
+/*****************************************************
+REVISION NUMBER
+*****************************************************/
 
+function generateNextRevisionNo_(
+currentRevision
+){
 
+const n=
+parseInt(
+currentRevision
+.replace("R","")
+)||0;
 
-function getNextRevisionNo_(qID) {
+return "R"+
+("00"+(n+1))
+.slice(-2);
 
-  const sheet =
-    getRequiredSheet_(
-      CONFIG.SHEETS.QUOTATION_REVISIONS
-    );
-
-  if (sheet.getLastRow() < 2) {
-    return CONFIG.REVISION.INITIAL_REVISION;
-  }
-
-  const data =
-    sheet
-      .getRange(
-        2,
-        2,
-        sheet.getLastRow() - 1,
-        2
-      )
-      .getValues();
-
-  let maxRev = -1;
-
-  data.forEach(function(row) {
-
-    const existingQID =
-      row[0];
-
-    const revisionNo =
-      row[1];
-
-    if (existingQID === qID) {
-
-      const match =
-        revisionNo
-          .toString()
-          .match(/R(\d+)/);
-
-      if (match) {
-
-        maxRev =
-          Math.max(
-            maxRev,
-            Number(match[1])
-          );
-
-      }
-    }
-  });
-
-  const next =
-    maxRev + 1;
-
-  return "R" +
-    ("00" + next).slice(-2);
 }
-
-
-
-
-
-
-
-function markOldRevisionsAsNotCurrent_(qID) {
-
-  const sheet =
-    getRequiredSheet_(
-      CONFIG.SHEETS.QUOTATION_REVISIONS
-    );
-
-  if (sheet.getLastRow() < 2) return;
-
-  const data =
-    sheet
-      .getRange(
-        2,
-        1,
-        sheet.getLastRow() - 1,
-        20
-      )
-      .getValues();
-
-  for (let i = 0; i < data.length; i++) {
-
-    if (data[i][1] === qID) {
-
-      const row =
-        i + 2;
-
-      sheet
-        .getRange(row, 19)
-        .setValue(false);
-    }
-  }
-}
-
-
-
-
-
-function copyQuotationItemsToNewRevision_(
-  qID,
-  oldRevision,
-  newRevision
-) {
-
-  const sheet =
-    getRequiredSheet_(
-      CONFIG.SHEETS.QUOTATION_ITEMS
-    );
-
-  if (sheet.getLastRow() < 2) return;
-
-  const data =
-    sheet
-      .getRange(
-        2,
-        1,
-        sheet.getLastRow() - 1,
-        19
-      )
-      .getValues();
-
-  const rowsToAdd = [];
-
-  data.forEach(function(row) {
-
-    if (
-      row[1] === qID &&
-      row[2] === oldRevision
-    ) {
-
-      const lineNo =
-        row[3];
-
-      const newItemID =
-        qID +
-        "-" +
-        newRevision +
-        "-L" +
-        ("00" + lineNo).slice(-2);
-
-      rowsToAdd.push([
-
-        newItemID,
-        qID,
-        newRevision,
-        lineNo,
-        row[4],
-        row[5],
-        row[6],
-        row[7],
-        row[8],
-        row[9],
-        row[10],
-        row[11],
-        row[12],
-        row[13],
-        row[14],
-        new Date(),
-        getCurrentUserName(),
-        new Date(),
-        getCurrentUserName()
-
-      ]);
-    }
-  });
-
-  if (rowsToAdd.length) {
-
-    const nextRow =
-      sheet.getLastRow() + 1;
-
-    sheet
-      .getRange(
-        nextRow,
-        1,
-        rowsToAdd.length,
-        19
-      )
-      .setValues(rowsToAdd);
-  }
-}
-
-
-
-
-
-function copyQuotationTermsToNewRevision_(
-  qID,
-  oldRevision,
-  newRevision
-) {
-
-  const sheet =
-    getRequiredSheet_(
-      CONFIG.SHEETS.QUOTATION_TERMS
-    );
-
-  const oldTerms =
-    getQuotationTerms_(
-      qID,
-      oldRevision
-    );
-
-  if (!oldTerms) {
-
-    createInitialQuotationTerms(
-      qID,
-      newRevision,
-      CONFIG.CURRENCY.EGP
-    );
-
-    return;
-  }
-
-  const now =
-    new Date();
-
-  const user =
-    getCurrentUserName();
-
-  const newTermsID =
-    qID +
-    "-" +
-    newRevision +
-    "-TERMS";
-
-  const rowData = [[
-
-    newTermsID,
-    qID,
-    newRevision,
-    oldTerms.currency,
-    oldTerms.subTotal,
-    oldTerms.discountPercent / 100,
-    oldTerms.vatPercent / 100,
-    oldTerms.advancePercent / 100,
-    oldTerms.advanceAmount,
-    oldTerms.remainingAmount,
-    oldTerms.grandTotal,
-    oldTerms.deliveryTerms,
-    oldTerms.paymentTerms,
-    oldTerms.validityDays,
-    now,
-    user,
-    now,
-    user,
-    "Copied from " + oldRevision
-
-  ]];
-
-  const nextRow =
-    sheet.getLastRow() < 2
-      ? 2
-      : sheet.getLastRow() + 1;
-
-  sheet
-    .getRange(
-      nextRow,
-      1,
-      1,
-      19
-    )
-    .setValues(rowData);
-}
-
-
-
-
-
