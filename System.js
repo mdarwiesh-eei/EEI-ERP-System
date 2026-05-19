@@ -16,14 +16,9 @@ function refreshAll(){
 
 
 function refreshFromMenu(){
-
-  
   buildQuotationSelectorForForm();
-  
   buildQuotationCustomerSelector();
-  
   buildAssignedUserSelector();
-  
   buildRevisionSelectorForForm();
 
   SpreadsheetApp
