@@ -24,9 +24,6 @@ function refreshFromMenu(){
   
   buildAssignedUserSelector();
   
-  
-  applyRFQDatePicker();
-
   buildRevisionSelectorForForm();
 
   SpreadsheetApp
