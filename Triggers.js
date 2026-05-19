@@ -1,190 +1,181 @@
-function installedOnEdit(e) {
+// @ts-nocheck
+/*****************************************************
+ EEI GLOBAL TRIGGERS
+*****************************************************/
+
+function onEdit(e) {
 
   if (!e) return;
 
-  const sheet = e.range.getSheet();
-  const name = sheet.getName();
-  const cell = e.range.getA1Notation();
+  const sheet = e.source.getActiveSheet();
 
-  // =====================
-  // CUSTOMER PROFILE
-  // =====================
-  if (name === "Customer_Profile") {
-
-    if (cell === "B3") {
-      if (e.value && e.value.includes("|")) {
-        loadCustomerProfile();
-      }
-      return;
-    }
-
-    if (cell === "D3" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      loadCustomerProfile();
-      return;
-    }
-
-    if (cell === "F9" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      editCustomerFromProfile();
-      return;
-    }
-
-    if (cell === "F10" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      clearCustomerProfile();
-      return;
-    }
+  if (
+    sheet.getName() !==
+    CONFIG.SHEETS.QUOTATION_FORM
+  ) {
+    return;
   }
 
-  // =====================
-  // REGISTER CUSTOMER
-  // =====================
-  if (name === "Register_Customer") {
+  const cell =
+    e.range.getA1Notation();
 
-    if (cell === "F16" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      registerCustomer();
-      return;
-    }
+  const value =
+    e.range.getValue();
 
-    if (cell === "F17" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      updateCustomer();
-      return;
-    }
+  if (value !== true) return;
 
-    if (cell === "F18" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      clearCustomerForm();
-      return;
-    }
-  }
+  try {
 
-  // =====================
-  // QUOTATION FORM
-  // =====================
-  if (name === CONFIG.SHEETS.QUOTATION_FORM) {
+    switch (cell) {
 
-    const qID = sheet.getRange("B6").getValue();
+      case "K4":
+        createQuotationFromForm();
+        break;
 
-    if (cell === "K2" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      loadQuotationToForm();
-      return;
-    }
+      case "K5":
+        loadQuotationToForm();
+        break;
 
-    if (cell === "K4" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      createQuotationFromForm();
-      return;
-    }
+      case "K6":
+        addQuotationItemsFromGrid();
+        break;
 
-    if (cell === "K5" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      addQuotationItemsFromGrid();
-      return;
-    }
+      case "K7":
+        approveQuotationFromForm_();
+        break;
 
-    if (cell === "K6" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      submitQuotationForReview(qID);
-      refreshQuotationForm();
-      return;
-    }
+      case "K8":
+        sendQuotationFromForm_();
+        break;
 
-    if (cell === "K7" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      approveQuotation(qID, "Approved from Quotation Form");
-      refreshQuotationForm();
-      return;
-    }
+      case "K9":
+        createQuotationRevisionFromForm();
+        break;
 
-    if (cell === "K8" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      sendQuotation(qID, "Sent from Quotation Form");
-      refreshQuotationForm();
-      return;
-    }
+      case "K10":
+        markQuotationWon_();
+        break;
 
-    if (cell === "K9" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      createQuotationRevisionFromForm();
-      refreshQuotationForm();
-      return;
-    }
+      case "K11":
+        markQuotationLost_();
+        break;
 
-    if (cell === "K10" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      markQuotationWon(qID, "Marked won from Quotation Form");
-      refreshQuotationForm();
-      return;
-    }
+      case "K12":
+        cancelQuotation_();
+        break;
 
-    if (cell === "K11" && e.range.getValue() === true) {
-      e.range.setValue(false);
-
-      const reason = SpreadsheetApp.getUi().prompt(
-        "Lost Reason",
-        "Please enter lost reason:",
-        SpreadsheetApp.getUi().ButtonSet.OK_CANCEL
-      );
-
-      if (reason.getSelectedButton() === SpreadsheetApp.getUi().Button.OK) {
-        markQuotationLost(
-          qID,
-          reason.getResponseText(),
-          "Marked lost from Quotation Form"
-        );
+      case "K13":
         refreshQuotationForm();
-      }
+        break;
 
-      return;
+      case "K14":
+        clearQuotationForm();
+        break;
+
+      case "K15":
+        openRFQFolderFromForm();
+        break;
+
+      case "K16":
+        openQuotationFolderFromForm();
+        break;
+
+      // Item Editor
+
+      case "K17":
+        loadSelectedItemToEditor();
+        break;
+
+      case "K18":
+        saveSelectedItemChanges();
+        break;
+
+      case "K19":
+        deleteSelectedItemSoft();
+        break;
+
+      case "K20":
+        archiveQuotationFromForm();
+        break;
+
     }
 
-    if (cell === "K12" && e.range.getValue() === true) {
-      e.range.setValue(false);
-
-      const reason = SpreadsheetApp.getUi().prompt(
-        "Cancel Reason",
-        "Please enter cancellation reason:",
-        SpreadsheetApp.getUi().ButtonSet.OK_CANCEL
-      );
-
-      if (reason.getSelectedButton() === SpreadsheetApp.getUi().Button.OK) {
-        cancelQuotation(
-          qID,
-          reason.getResponseText(),
-          "Cancelled from Quotation Form"
-        );
-        refreshQuotationForm();
-      }
-
-      return;
-    }
-
-    if (cell === "K13" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      refreshQuotationForm();
-      return;
-    }
-
-    if (cell === "K14" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      clearQuotationForm();
-      return;
-    }
-
-    if (cell === "K15" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      openQuotationFolderFromForm();
-      return;
-    }
-
-    if (cell === "K16" && e.range.getValue() === true) {
-      e.range.setValue(false);
-      openRFQFolderFromForm();
-      return;
-    }
   }
+  catch(err){
+
+    SpreadsheetApp
+    .getUi()
+    .alert(
+      "Trigger Error:\n"+
+      err.message
+    );
+
+    Logger.log(err);
+
+  }
+  finally{
+
+    e.range.setValue(false);
+
+  }
+
+}
+
+
+/*****************************************************
+ WORKFLOW WRAPPERS
+*****************************************************/
+
+function approveQuotationFromForm_(){
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Approve workflow next"
+);
+
+}
+
+
+function sendQuotationFromForm_(){
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Send workflow next"
+);
+
+}
+
+
+function markQuotationWon_(){
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Won workflow next"
+);
+
+}
+
+
+function markQuotationLost_(){
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Lost workflow next"
+);
+
+}
+
+
+function cancelQuotation_(){
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Cancel workflow next"
+);
+
 }
