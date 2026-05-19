@@ -94,11 +94,11 @@ function loadQuotationToForm() {
 
   const data = QFORM.getData();
 
-  if (!data.quotationSelector){
+  if (!data.quotationSelector) {
 
     SpreadsheetApp
-    .getUi()
-    .alert("Select quotation");
+      .getUi()
+      .alert("Select quotation");
 
     return;
 
@@ -130,7 +130,7 @@ function createQuotationFromForm() {
  ADD ITEMS
 *****************************************************/
 
-function addQuotationItemsFromGrid(){
+function addQuotationItemsFromGrid() {
 
   addQuotationItems();
 
@@ -143,7 +143,7 @@ function addQuotationItemsFromGrid(){
  CREATE REVISION
 *****************************************************/
 
-function createRevisionFromForm(){
+function createRevisionFromForm() {
 
   createQuotationRevision();
 
@@ -156,31 +156,50 @@ function createRevisionFromForm(){
  OPEN FOLDER
 *****************************************************/
 
-function openQuotationFolder(){
+function openQuotationFolder() {
 
-  const sh=QFORM.SHEET();
+  const sh = QFORM.SHEET();
 
-  const link=
-  sh.getRange("D10")
-  .getValue();
+  const link =
+    sh.getRange("D10")
+      .getValue();
 
-  if(link){
+  if (link) {
 
-    const html=
+    const html =
       HtmlService
-      .createHtmlOutput(
-      `<script>
+        .createHtmlOutput(
+          `<script>
       window.open("${link}");
       google.script.host.close();
       </script>`);
 
     SpreadsheetApp
-    .getUi()
-    .showModalDialog(
-      html,
-      "Opening..."
-    );
+      .getUi()
+      .showModalDialog(
+        html,
+        "Opening..."
+      );
 
   }
 
+}
+
+
+
+
+function refreshQuotationForm() {
+  loadQuotationToForm();
+}
+
+function createQuotationRevisionFromForm() {
+  createRevisionFromForm();
+}
+
+function openQuotationFolderFromForm() {
+  openQuotationFolder();
+}
+
+function openRFQFolderFromForm() {
+  openQuotationFolder();
 }
