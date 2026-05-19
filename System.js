@@ -1,21 +1,12 @@
-function refreshAll(){
-
+function refreshAll() {
   buildCustomerSelector();
-
   buildQuotationCustomerSelector();
-
   buildAssignedUserSelector();
-
   buildQuotationSelectorForForm();
-
   buildRevisionSelectorForForm();
-
 }
 
-
-
-
-function refreshFromMenu(){
+function refreshFromMenu() {
   buildQuotationSelectorForForm();
   buildQuotationCustomerSelector();
   buildAssignedUserSelector();
@@ -25,8 +16,3 @@ function refreshFromMenu(){
     .getUi()
     .alert("Selectors are ready ✅");
 }
-
-
-
-
-
