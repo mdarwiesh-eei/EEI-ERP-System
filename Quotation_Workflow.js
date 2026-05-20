@@ -266,6 +266,8 @@ function changeQuotationStatus_(
       newStatus
     );
 
+    syncQuotationStatusWithCurrentRevision_(qID);
+
     refreshQuotationKPIsFromForm();
 
     // ===============================
@@ -554,10 +556,93 @@ function cancelQuotation(
   );
 
   refreshQuotationKPIsFromForm();
-  
+
 }
 
 
 
 
 
+function syncQuotationStatusWithCurrentRevision_(qID) {
+
+  const quotations =
+    getRequiredSheet_(
+      CONFIG.SHEETS.QUOTATIONS
+    );
+
+  const revisions =
+    getRequiredSheet_(
+      CONFIG.SHEETS.QUOTATION_REVISIONS
+    );
+
+  const quotation =
+    getQuotationById_(qID);
+
+  if (!quotation) {
+    throw new Error("Quotation not found.");
+  }
+
+  if (revisions.getLastRow() < 2) {
+    return;
+  }
+
+  const data =
+    revisions
+      .getRange(
+        2,
+        1,
+        revisions.getLastRow() - 1,
+        revisions.getLastColumn()
+      )
+      .getValues();
+
+  let currentRevisionStatus = "";
+
+  data.forEach(function (row) {
+
+    const rowQID = row[1];
+    const revisionNo = row[2];
+    const revisionStatus = row[3];
+    const isCurrent = row[18];
+
+    if (
+      rowQID === qID &&
+      revisionNo === quotation.currentRevision &&
+      isCurrent === true
+    ) {
+      currentRevisionStatus = revisionStatus;
+    }
+
+  });
+
+  if (!currentRevisionStatus) {
+    return;
+  }
+
+  quotations
+    .getRange(
+      quotation.row,
+      6
+    )
+    .setValue(
+      currentRevisionStatus
+    );
+
+  quotations
+    .getRange(
+      quotation.row,
+      19
+    )
+    .setValue(
+      new Date()
+    );
+
+  quotations
+    .getRange(
+      quotation.row,
+      20
+    )
+    .setValue(
+      getCurrentUserName()
+    );
+}

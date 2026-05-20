@@ -214,6 +214,76 @@ function createQuotationFromForm() {
 }
 
 
+/*****************************************************
+ ADD ITEMS FROM GRID
+*****************************************************/
+
+function addQuotationItemsFromGrid() {
+
+  const sh = QFORM.SHEET();
+
+  const qID =
+    sh.getRange("B7").getValue();
+
+  const revision =
+    sh.getRange("E2").getValue();
+
+  if (!qID) {
+
+    SpreadsheetApp
+      .getUi()
+      .alert(
+        "Load quotation first"
+      );
+
+    return;
+  }
+
+  if (!revision) {
+
+    SpreadsheetApp
+      .getUi()
+      .alert(
+        "Select revision first"
+      );
+
+    return;
+  }
+
+  // Selected line reset
+  sh.getRange("B20").clearContent();
+
+  // Editor reset
+  sh.getRangeList([
+    "B21",
+    "F21",
+    "B22",
+    "F22",
+    "B23",
+    "D23",
+    "F23",
+    "H23",
+    "B24:H25"
+  ]).clearContent();
+
+  // Next line suggestion
+  const nextLine =
+    getNextQuotationLineNo_(
+      qID,
+      revision
+    );
+
+  sh.getRange("B20")
+    .setValue(nextLine);
+
+  SpreadsheetApp
+    .getUi()
+    .alert(
+      "New item ready → Line "
+      + nextLine
+    );
+
+}
 
 /*****************************************************
  LOAD ITEMS TO FORM
