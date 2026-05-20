@@ -66,42 +66,46 @@ function handleQuotationEdit(e) {
         break;
 
       case "K7":
-        approveQuotationFromForm_();
+        submitQuotationForReviewFromForm_();
         break;
 
       case "K8":
-        sendQuotationFromForm_();
+        approveQuotationFromForm_();
         break;
 
       case "K9":
-        createQuotationRevisionFromForm();
+        sendQuotationFromForm_();
         break;
 
       case "K10":
-        markQuotationWon_();
+        createQuotationRevisionFromForm();
         break;
 
       case "K11":
-        markQuotationLost_();
+        markQuotationWon_();
         break;
 
       case "K12":
-        cancelQuotation_();
+        markQuotationLost_();
         break;
 
       case "K13":
-        refreshQuotationForm();
+        cancelQuotation_();
         break;
 
       case "K14":
-        clearQuotationForm();
+        refreshQuotationForm();
         break;
 
       case "K15":
-        openRFQFolderFromForm();
+        clearQuotationForm();
         break;
 
       case "K16":
+        openRFQFolderFromForm();
+        break;
+
+      case "K17":
         openQuotationFolderFromForm();
         break;
 
@@ -109,7 +113,6 @@ function handleQuotationEdit(e) {
         archiveQuotationFromForm();
         break;
     }
-
   } catch (err) {
 
     SpreadsheetApp
@@ -228,58 +231,191 @@ function getTransformerTypeIndexes_(headers) {
  WORKFLOW WRAPPERS
 *****************************************************/
 
+function getLoadedQuotationID_() {
+  const sh = QFORM.SHEET();
+
+  const qID = String(
+    sh.getRange("B7").getDisplayValue()
+  ).trim();
+
+  if (!qID) {
+    throw new Error("Load quotation first.");
+  }
+
+  return qID;
+}
+
+
+function reloadLoadedQuotation_(qID) {
+  const sh = QFORM.SHEET();
+
+  sh.getRange("B2").setValue(qID);
+  buildRevisionSelectorForForm(qID);
+
+  const quotation = getQuotationById_(qID);
+
+  if (quotation && quotation.currentRevision) {
+    sh.getRange("E2").setValue(quotation.currentRevision);
+  }
+
+  loadQuotationToForm();
+}
+
+
+function submitQuotationForReviewFromForm_() {
+  const qID = getLoadedQuotationID_();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirm = ui.alert(
+    "Submit for Review",
+    "Submit quotation " + qID + " for review?",
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirm !== ui.Button.YES) return;
+
+  const result = submitQuotationForReview(qID);
+
+  if (result && result.success) {
+    reloadLoadedQuotation_(qID);
+    ui.alert("Quotation submitted for review ✅");
+  }
+}
+
+
 function approveQuotationFromForm_() {
+  const qID = getLoadedQuotationID_();
+  const ui = SpreadsheetApp.getUi();
 
-  SpreadsheetApp
-    .getUi()
-    .alert(
-      "Approve workflow next"
-    );
+  const confirm = ui.alert(
+    "Approve Quotation",
+    "Approve quotation " + qID + "?",
+    ui.ButtonSet.YES_NO
+  );
 
+  if (confirm !== ui.Button.YES) return;
+
+  const result = approveQuotation(
+    qID,
+    "Approved from Quotation Management Form"
+  );
+
+  if (result && result.success) {
+    reloadLoadedQuotation_(qID);
+    ui.alert("Quotation approved ✅");
+  }
 }
 
 
 function sendQuotationFromForm_() {
+  const qID = getLoadedQuotationID_();
+  const ui = SpreadsheetApp.getUi();
 
-  SpreadsheetApp
-    .getUi()
-    .alert(
-      "Send workflow next"
-    );
+  const confirm = ui.alert(
+    "Send Quotation",
+    "Mark quotation " + qID + " as Sent?",
+    ui.ButtonSet.YES_NO
+  );
 
+  if (confirm !== ui.Button.YES) return;
+
+  const result = sendQuotation(
+    qID,
+    "Sent from Quotation Management Form"
+  );
+
+  if (result && result.success) {
+    reloadLoadedQuotation_(qID);
+    ui.alert("Quotation sent ✅");
+  }
 }
 
 
 function markQuotationWon_() {
+  const qID = getLoadedQuotationID_();
+  const ui = SpreadsheetApp.getUi();
 
-  SpreadsheetApp
-    .getUi()
-    .alert(
-      "Won workflow next"
-    );
+  const confirm = ui.alert(
+    "Mark Quotation Won",
+    "Mark quotation " + qID + " as Won?",
+    ui.ButtonSet.YES_NO
+  );
 
+  if (confirm !== ui.Button.YES) return;
+
+  const result = markQuotationWon(
+    qID,
+    "Marked won from Quotation Management Form"
+  );
+
+  if (result && result.success) {
+    reloadLoadedQuotation_(qID);
+    ui.alert("Quotation marked as Won ✅");
+  }
 }
 
 
 function markQuotationLost_() {
+  const qID = getLoadedQuotationID_();
+  const ui = SpreadsheetApp.getUi();
 
-  SpreadsheetApp
-    .getUi()
-    .alert(
-      "Lost workflow next"
-    );
+  const response = ui.prompt(
+    "Mark Quotation Lost",
+    "Enter lost reason for " + qID + ":",
+    ui.ButtonSet.OK_CANCEL
+  );
 
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+
+  const reason = String(response.getResponseText() || "").trim();
+
+  if (!reason) {
+    ui.alert("Lost reason is required.");
+    return;
+  }
+
+  const result = markQuotationLost(
+    qID,
+    reason,
+    "Marked lost from Quotation Management Form"
+  );
+
+  if (result && result.success) {
+    reloadLoadedQuotation_(qID);
+    ui.alert("Quotation marked as Lost ✅");
+  }
 }
 
 
 function cancelQuotation_() {
+  const qID = getLoadedQuotationID_();
+  const ui = SpreadsheetApp.getUi();
 
-  SpreadsheetApp
-    .getUi()
-    .alert(
-      "Cancel workflow next"
-    );
+  const response = ui.prompt(
+    "Cancel Quotation",
+    "Enter cancellation reason for " + qID + ":",
+    ui.ButtonSet.OK_CANCEL
+  );
 
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+
+  const reason = String(response.getResponseText() || "").trim();
+
+  if (!reason) {
+    ui.alert("Cancellation reason is required.");
+    return;
+  }
+
+  const result = cancelQuotation(
+    qID,
+    reason,
+    "Cancelled from Quotation Management Form"
+  );
+
+  if (result && result.success) {
+    reloadLoadedQuotation_(qID);
+    ui.alert("Quotation cancelled ✅");
+  }
 }
 
 
@@ -290,7 +426,7 @@ function setupInstallableOnEditTrigger() {
 
   const triggers = ScriptApp.getProjectTriggers();
 
-  triggers.forEach(function(trigger) {
+  triggers.forEach(function (trigger) {
     if (trigger.getHandlerFunction() === "handleQuotationEdit") {
       ScriptApp.deleteTrigger(trigger);
     }
