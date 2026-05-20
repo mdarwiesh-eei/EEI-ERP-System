@@ -1064,3 +1064,56 @@ function testAddQuotationItem() {
 
   Logger.log(result);
 }
+
+
+
+
+function updateRevisionTotals_(
+  qID,
+  revisionNo,
+  subTotal,
+  discountPercent,
+  vatPercent,
+  grandTotal
+) {
+
+  const revisions =
+    getRequiredSheet_(
+      CONFIG.SHEETS.QUOTATION_REVISIONS
+    );
+
+  if (revisions.getLastRow() < 2) {
+    return;
+  }
+
+  const data =
+    revisions
+      .getRange(
+        2,
+        1,
+        revisions.getLastRow() - 1,
+        revisions.getLastColumn()
+      )
+      .getValues();
+
+  for (let i = 0; i < data.length; i++) {
+
+    const row = data[i];
+
+    if (
+      row[1] === qID &&
+      row[2] === revisionNo
+    ) {
+
+      const sheetRow = i + 2;
+
+      revisions.getRange(sheetRow, 10).setValue(subTotal);
+      revisions.getRange(sheetRow, 11).setValue(discountPercent);
+      revisions.getRange(sheetRow, 12).setValue(vatPercent);
+      revisions.getRange(sheetRow, 13).setValue(grandTotal);
+
+      return;
+    }
+  }
+}
+
