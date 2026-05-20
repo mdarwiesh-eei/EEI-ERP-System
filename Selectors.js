@@ -222,87 +222,70 @@ function buildAssignedUserSelector() {
 
 
 
-
 function buildRevisionSelectorForForm(qID) {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const form = ss.getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+  const revisionsSheet = ss.getSheetByName(CONFIG.SHEETS.QUOTATION_REVISIONS);
 
-  const revisions =
-    ss.getSheetByName(CONFIG.SHEETS.QUOTATION_REVISIONS);
+  if (!form || !revisionsSheet) return;
 
-  const form =
-    ss.getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+  const revisionCell = form.getRange("E2");
 
-  if (!form) return;
+  revisionCell.clearContent();
+  revisionCell.clearDataValidations();
 
-  const cell = form.getRange("E2");
-
-  cell.clearDataValidations();
-
-  if (!revisions) {
-    cell.setValue("Revision sheet not found");
-    return;
+  if (!qID) {
+    const selectorValue = form.getRange("B2").getValue();
+    qID = extractQuotationIDFromSelector_(selectorValue);
   }
 
   if (!qID) {
-    cell.setValue("No QID");
+    revisionCell.setValue("No QID");
     return;
   }
 
-  qID = qID.toString().trim();
-
-  if (revisions.getLastRow() < 2) {
-    cell.setValue("No revisions data");
+  if (revisionsSheet.getLastRow() < 2) {
+    revisionCell.setValue("No Revisions");
     return;
   }
 
-  const data = revisions
-    .getRange(2, 1, revisions.getLastRow() - 1, 20)
+  const data = revisionsSheet
+    .getRange(2, 1, revisionsSheet.getLastRow() - 1, revisionsSheet.getLastColumn())
     .getValues();
 
-  const list = [];
+  const revisions = [];
 
-  data.forEach(function (row) {
-
-    const rowQID =
-      row[1] ? row[1].toString().trim() : "";
-
-    const revisionNo =
-      row[2] ? row[2].toString().trim() : "";
-
-    const status =
-      row[3] ? row[3].toString().trim() : "";
-
-    const reason =
-      row[4] ? row[4].toString().trim() : "";
+  data.forEach(function(row) {
+    const rowQID = row[1];
+    const revisionNo = row[2];
 
     if (rowQID === qID && revisionNo) {
-
-      list.push(
-        revisionNo +
-        " | " +
-        status +
-        (reason ? " | " + reason : "")
-      );
-
+      revisions.push(revisionNo.toString());
     }
-
   });
 
-  if (!list.length) {
-    cell.setValue("No revision for " + qID);
+  if (!revisions.length) {
+    revisionCell.setValue("No Revisions");
     return;
   }
+
+  revisions.sort();
 
   const rule = SpreadsheetApp
     .newDataValidation()
-    .requireValueInList(list, true)
-    .setAllowInvalid(true)
+    .requireValueInList(revisions, true)
+    .setAllowInvalid(false)
     .build();
 
-  cell.setDataValidation(rule);
-  cell.setValue(list[0]);
-}
+  revisionCell.setDataValidation(rule);
 
+  const quotation = getQuotationById_(qID);
+  const defaultRevision = quotation && quotation.currentRevision
+    ? quotation.currentRevision
+    : revisions[revisions.length - 1];
+
+  revisionCell.setValue(defaultRevision);
+}
 
 

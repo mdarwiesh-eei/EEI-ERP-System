@@ -101,7 +101,7 @@ function loadQuotationToForm() {
   const sh = QFORM.SHEET();
 
   const selectorValue = sh.getRange("B2").getValue();
-  const selectedRevision = sh.getRange("E2").getValue();
+  let selectedRevision = sh.getRange("E2").getValue();
 
   if (!selectorValue) {
     SpreadsheetApp.getUi().alert("Select quotation first.");
@@ -122,13 +122,16 @@ function loadQuotationToForm() {
     return;
   }
 
-  let revisionNo = selectedRevision;
-
-  if (!revisionNo || revisionNo === "No QID") {
-    revisionNo = quotation.currentRevision || "R00";
+  if (!selectedRevision || selectedRevision === "No QID" || selectedRevision === "No Revisions") {
+    buildRevisionSelectorForForm(qID);
+    selectedRevision = sh.getRange("E2").getValue();
   }
 
-  // Clear old loaded data first
+  if (!selectedRevision || selectedRevision === "No QID" || selectedRevision === "No Revisions") {
+    SpreadsheetApp.getUi().alert("Select revision first.");
+    return;
+  }
+
   sh.getRangeList([
     "B5:C5",
     "E5:F5",
@@ -144,7 +147,6 @@ function loadQuotationToForm() {
     "A23:L90"
   ]).clearContent();
 
-  // Header
   sh.getRange("B7").setValue(quotation.qID);
   sh.getRange("B5").setValue(quotation.customerName || "");
   sh.getRange("E5").setValue(quotation.projectName || "");
@@ -155,24 +157,20 @@ function loadQuotationToForm() {
   sh.getRange("E11").setValue(quotation.customerRFQLink || "");
   sh.getRange("B13").setValue(quotation.notes || "");
 
-  // Rebuild revision selector then keep chosen revision
-  buildRevisionSelectorForForm(quotation.qID);
-  sh.getRange("E2").setValue(revisionNo);
+  sh.getRange("E2").setValue(selectedRevision);
 
-  // Load selected revision data
-  loadQuotationItemsToForm_(quotation.qID, revisionNo);
+  loadQuotationItemsToForm_(quotation.qID, selectedRevision);
 
   if (typeof loadQuotationTermsToForm_ === "function") {
-    loadQuotationTermsToForm_(quotation.qID, revisionNo);
+    loadQuotationTermsToForm_(quotation.qID, selectedRevision);
   }
 
   refreshQuotationKPIsFromForm();
 
   SpreadsheetApp
     .getUi()
-    .alert("Quotation loaded ✅ " + quotation.qID + " / " + revisionNo);
+    .alert("Quotation loaded ✅ " + quotation.qID + " / " + selectedRevision);
 }
-
 
 /*****************************************************
  CREATE QUOTATION FROM FORM

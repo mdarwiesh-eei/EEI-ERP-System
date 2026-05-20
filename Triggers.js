@@ -9,31 +9,21 @@ function onEdit(e) {
 
   const sheet = e.source.getActiveSheet();
 
-  if (
-    sheet.getName() !==
-    CONFIG.SHEETS.QUOTATION_FORM
-  ) {
+  if (sheet.getName() !== CONFIG.SHEETS.QUOTATION_FORM) {
     return;
   }
 
-  const cell =
-    e.range.getA1Notation();
+  const cell = e.range.getA1Notation();
 
-  // When quotation selector changes, rebuild revision selector
   if (cell === "B2") {
-
     const selectorValue = e.range.getValue();
     const qID = extractQuotationIDFromSelector_(selectorValue);
 
-    if (qID) {
-      buildRevisionSelectorForForm(qID);
-    }
-
+    buildRevisionSelectorForForm(qID);
     return;
   }
 
-  const value =
-    e.range.getValue();
+  const value = e.range.getValue();
 
   if (value !== true) return;
 
@@ -114,10 +104,7 @@ function onEdit(e) {
 
     SpreadsheetApp
       .getUi()
-      .alert(
-        "Trigger Error:\n" +
-        err.message
-      );
+      .alert("Trigger Error:\n" + err.message);
 
     Logger.log(err);
 
@@ -128,61 +115,60 @@ function onEdit(e) {
   }
 }
 
-
 /*****************************************************
  WORKFLOW WRAPPERS
 *****************************************************/
 
-function approveQuotationFromForm_(){
+function approveQuotationFromForm_() {
 
-SpreadsheetApp
-.getUi()
-.alert(
-"Approve workflow next"
-);
-
-}
-
-
-function sendQuotationFromForm_(){
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Send workflow next"
-);
+  SpreadsheetApp
+    .getUi()
+    .alert(
+      "Approve workflow next"
+    );
 
 }
 
 
-function markQuotationWon_(){
+function sendQuotationFromForm_() {
 
-SpreadsheetApp
-.getUi()
-.alert(
-"Won workflow next"
-);
-
-}
-
-
-function markQuotationLost_(){
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Lost workflow next"
-);
+  SpreadsheetApp
+    .getUi()
+    .alert(
+      "Send workflow next"
+    );
 
 }
 
 
-function cancelQuotation_(){
+function markQuotationWon_() {
 
-SpreadsheetApp
-.getUi()
-.alert(
-"Cancel workflow next"
-);
+  SpreadsheetApp
+    .getUi()
+    .alert(
+      "Won workflow next"
+    );
+
+}
+
+
+function markQuotationLost_() {
+
+  SpreadsheetApp
+    .getUi()
+    .alert(
+      "Lost workflow next"
+    );
+
+}
+
+
+function cancelQuotation_() {
+
+  SpreadsheetApp
+    .getUi()
+    .alert(
+      "Cancel workflow next"
+    );
 
 }
