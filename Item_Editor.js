@@ -89,22 +89,29 @@ SAVE ITEM
 K18
 *****************************************************/
 
-function saveSelectedItemChanges(){
+function saveSelectedItemChanges() {
 
-const sh=QFORM.SHEET();
+const sh = QFORM.SHEET();
 
-const qID=
-sh.getRange("B7").getValue();
+const qID =
+String(
+sh.getRange("B7")
+.getDisplayValue()
+).trim();
 
-const revision=
-sh.getRange("E2").getValue();
+const revision =
+String(
+sh.getRange("E2")
+.getDisplayValue()
+).trim();
 
-const lineNo=
+const lineNo =
 Number(
-sh.getRange("B20").getValue()
+sh.getRange("B20")
+.getValue()
 );
 
-if(!qID){
+if (!qID) {
 
 SpreadsheetApp
 .getUi()
@@ -113,9 +120,22 @@ SpreadsheetApp
 );
 
 return;
+
 }
 
-if(!lineNo){
+if (!revision) {
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Select revision first"
+);
+
+return;
+
+}
+
+if (!lineNo) {
 
 SpreadsheetApp
 .getUi()
@@ -124,9 +144,158 @@ SpreadsheetApp
 );
 
 return;
+
 }
 
-const existingItem=
+
+/*****************************************************
+READ ITEM EDITOR
+*****************************************************/
+
+const description =
+String(
+sh.getRange("B21")
+.getDisplayValue()
+).trim();
+
+const transformerType =
+String(
+sh.getRange("F21")
+.getDisplayValue()
+).trim();
+
+const powerKVA =
+String(
+sh.getRange("B22")
+.getDisplayValue()
+).trim();
+
+const voltage =
+String(
+sh.getRange("F22")
+.getDisplayValue()
+).trim();
+
+const quantity =
+Number(
+sh.getRange("B23")
+.getValue()
+);
+
+const unitPrice =
+Number(
+sh.getRange("D23")
+.getValue()
+);
+
+const warranty =
+String(
+sh.getRange("F23")
+.getDisplayValue()
+).trim();
+
+const deliveryTime =
+String(
+sh.getRange("H23")
+.getDisplayValue()
+).trim();
+
+const notes =
+String(
+sh.getRange("B24")
+.getDisplayValue()
+).trim();
+
+
+/*****************************************************
+VALIDATION
+*****************************************************/
+
+if (!description) {
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Description is required"
+);
+
+return;
+
+}
+
+if (
+isNaN(quantity) ||
+quantity <= 0
+) {
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Quantity must be greater than zero"
+);
+
+return;
+
+}
+
+if (
+isNaN(unitPrice) ||
+unitPrice <= 0
+) {
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Unit price must be greater than zero"
+);
+
+return;
+
+}
+
+
+/*****************************************************
+ITEM OBJECT
+*****************************************************/
+
+const itemData = {
+
+qID: qID,
+
+revisionNo: revision,
+
+description: description,
+
+transformerType: transformerType,
+
+powerKVA: powerKVA,
+
+voltage: voltage,
+
+quantity: quantity,
+
+unitPrice: unitPrice,
+
+currency:
+String(
+sh.getRange("B11")
+.getDisplayValue()
+).trim(),
+
+deliveryTime: deliveryTime,
+
+warranty: warranty,
+
+notes: notes
+
+};
+
+
+/*****************************************************
+CHECK EXISTING
+*****************************************************/
+
+const existingItem =
 getQuotationItemByLine_(
 qID,
 revision,
@@ -135,74 +304,30 @@ lineNo
 
 
 /*****************************************************
-COLLECT EDITOR DATA
-*****************************************************/
-
-const itemData={
-
-qID:qID,
-
-revisionNo:revision,
-
-description:
-sh.getRange("B21")
-.getValue(),
-
-transformerType:
-sh.getRange("F21")
-.getValue(),
-
-powerKVA:
-sh.getRange("B22")
-.getValue(),
-
-voltage:
-sh.getRange("F22")
-.getValue(),
-
-quantity:
-sh.getRange("B23")
-.getValue(),
-
-unitPrice:
-sh.getRange("D23")
-.getValue(),
-
-warranty:
-sh.getRange("F23")
-.getValue(),
-
-deliveryTime:
-sh.getRange("H23")
-.getValue(),
-
-notes:
-sh.getRange("B24")
-.getValue()
-
-};
-
-
-/*****************************************************
 NEW ITEM
 *****************************************************/
 
-if(!existingItem){
+if (!existingItem) {
 
-const result=
+const result =
 addQuotationItem(
 itemData
 );
 
-if(!result.success){
+if (
+!result ||
+!result.success
+) {
 
 SpreadsheetApp
 .getUi()
 .alert(
-result.error
+result.error ||
+"Add item failed"
 );
 
 return;
+
 }
 
 SpreadsheetApp
@@ -215,29 +340,23 @@ SpreadsheetApp
 
 
 /*****************************************************
-UPDATE
+UPDATE ITEM
 *****************************************************/
 
-else{
+else {
 
-const items=
+const items =
 getRequiredSheet_(
 CONFIG.SHEETS
 .QUOTATION_ITEMS
 );
 
-const row=
+const row =
 existingItem.row;
 
-const qty=
-Number(
-itemData.quantity
-)||0;
-
-const unit=
-Number(
-itemData.unitPrice
-)||0;
+const totalPrice =
+quantity *
+unitPrice;
 
 items
 .getRange(
@@ -248,27 +367,19 @@ row,
 )
 .setValues([[
 
-itemData.description,
+description,
+transformerType,
+powerKVA,
+voltage,
+quantity,
+unitPrice,
+totalPrice,
 
-itemData.transformerType,
+itemData.currency,
 
-itemData.powerKVA,
-
-itemData.voltage,
-
-qty,
-
-unit,
-
-qty*unit,
-
-existingItem.currency||"",
-
-itemData.deliveryTime,
-
-itemData.warranty,
-
-itemData.notes
+deliveryTime,
+warranty,
+notes
 
 ]]);
 
@@ -288,6 +399,24 @@ row,
 )
 .setValue(
 getCurrentUserName()
+);
+
+items
+.getRange(
+row,
+21
+)
+.setValue(
+getCurrentUserName()
+);
+
+items
+.getRange(
+row,
+22
+)
+.setValue(
+new Date()
 );
 
 SpreadsheetApp
