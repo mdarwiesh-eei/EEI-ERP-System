@@ -217,70 +217,69 @@ function createQuotationFromForm() {
 function addQuotationItemsFromGrid() {
 
   const sh = QFORM.SHEET();
-  const data = QFORM.getData();
 
-  const qID = data.quotationID;
-  const revisionNo = data.revision;
+  const qID =
+    sh.getRange("B7").getValue();
+
+  const revision =
+    sh.getRange("E2").getValue();
 
   if (!qID) {
-    SpreadsheetApp.getUi().alert("Load quotation first.");
+
+    SpreadsheetApp
+      .getUi()
+      .alert(
+        "Load quotation first"
+      );
+
     return;
   }
 
-  const rows = sh.getRange("A23:L90").getValues();
+  if (!revision) {
 
-  const items = [];
+    SpreadsheetApp
+      .getUi()
+      .alert(
+        "Select revision first"
+      );
 
-  rows.forEach(function(row) {
-
-    const description = row[1];
-    const transformerType = row[2];
-    const powerKVA = row[3];
-    const voltage = row[4];
-    const quantity = row[5];
-    const unitPrice = row[6];
-    const deliveryTime = row[8];
-    const warranty = row[9];
-    const notes = row[10];
-
-    if (description || quantity || unitPrice) {
-
-      items.push({
-        description: description,
-        transformerType: transformerType,
-        powerKVA: powerKVA,
-        voltage: voltage,
-        quantity: quantity,
-        unitPrice: unitPrice,
-        currency: data.currency,
-        deliveryTime: deliveryTime,
-        warranty: warranty,
-        notes: notes
-      });
-
-    }
-
-  });
-
-  if (!items.length) {
-    SpreadsheetApp.getUi().alert("No items to add.");
     return;
   }
 
-  const result = addQuotationItemsBatch({
-    qID: qID,
-    revisionNo: revisionNo,
-    items: items
-  });
+  // Selected line reset
+  sh.getRange("B20").clearContent();
 
-  if (result && result.success) {
-    loadQuotationItemsToForm_(qID, revisionNo);
-    refreshQuotationKPIsFromForm();
-    SpreadsheetApp.getUi().alert(result.addedCount + " item(s) added ✅");
-  }
+  // Editor reset
+  sh.getRangeList([
+    "B21",
+    "F21",
+    "B22",
+    "F22",
+    "B23",
+    "D23",
+    "F23",
+    "H23",
+    "B24:H25"
+  ]).clearContent();
+
+  // Next line suggestion
+  const nextLine =
+    getNextQuotationLineNo_(
+      qID,
+      revision
+    );
+
+  sh.getRange("B20")
+    .setValue(nextLine);
+
+  SpreadsheetApp
+    .getUi()
+    .alert(
+      "New item ready → Line "
+      + nextLine
+    );
 
 }
-
 
 /*****************************************************
  LOAD ITEMS TO FORM

@@ -104,176 +104,121 @@ Number(
 sh.getRange("B20").getValue()
 );
 
-if(!qID){
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Load quotation first"
-);
-
-return;
-}
-
-if(!lineNo){
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Line number missing"
-);
-
-return;
-}
-
-const existingItem=
+const item=
 getQuotationItemByLine_(
 qID,
 revision,
 lineNo
 );
 
-
-/*****************************************************
-COLLECT EDITOR DATA
-*****************************************************/
-
-const itemData={
-
-qID:qID,
-
-revisionNo:revision,
-
-description:
-sh.getRange("B21")
-.getValue(),
-
-transformerType:
-sh.getRange("F21")
-.getValue(),
-
-powerKVA:
-sh.getRange("B22")
-.getValue(),
-
-voltage:
-sh.getRange("F22")
-.getValue(),
-
-quantity:
-sh.getRange("B23")
-.getValue(),
-
-unitPrice:
-sh.getRange("D23")
-.getValue(),
-
-warranty:
-sh.getRange("F23")
-.getValue(),
-
-deliveryTime:
-sh.getRange("H23")
-.getValue(),
-
-notes:
-sh.getRange("B24")
-.getValue()
-
-};
-
-
-/*****************************************************
-NEW ITEM
-*****************************************************/
-
-if(!existingItem){
-
-const result=
-addQuotationItem(
-itemData
-);
-
-if(!result.success){
+if(!item){
 
 SpreadsheetApp
 .getUi()
 .alert(
-result.error
+"Item not found"
 );
 
 return;
 }
 
-SpreadsheetApp
-.getUi()
-.alert(
-"New item added"
-);
-
-}
-
-
-/*****************************************************
-UPDATE
-*****************************************************/
-
-else{
-
 const items=
 getRequiredSheet_(
-CONFIG.SHEETS
-.QUOTATION_ITEMS
+CONFIG.SHEETS.QUOTATION_ITEMS
 );
 
-const row=
-existingItem.row;
+const row=item.row;
+
+items.getRange(
+row,
+5
+).setValue(
+sh.getRange("B21").getValue()
+);
+
+items.getRange(
+row,
+6
+).setValue(
+sh.getRange("F21").getValue()
+);
+
+items.getRange(
+row,
+7
+).setValue(
+sh.getRange("B22").getValue()
+);
+
+items.getRange(
+row,
+8
+).setValue(
+sh.getRange("F22").getValue()
+);
+
+items.getRange(
+row,
+9
+).setValue(
+sh.getRange("B23").getValue()
+);
+
+items.getRange(
+row,
+10
+).setValue(
+sh.getRange("D23").getValue()
+);
 
 const qty=
 Number(
-itemData.quantity
-)||0;
+sh.getRange("B23")
+.getValue()
+);
 
-const unit=
+const unitPrice=
 Number(
-itemData.unitPrice
-)||0;
+sh.getRange("D23")
+.getValue()
+);
 
-items
-.getRange(
+items.getRange(
 row,
-5,
-1,
 11
 )
-.setValues([[
+.setValue(
+qty*unitPrice
+);
 
-itemData.description,
+items.getRange(
+row,
+13
+)
+.setValue(
+sh.getRange("H23")
+.getValue()
+);
 
-itemData.transformerType,
+items.getRange(
+row,
+14
+)
+.setValue(
+sh.getRange("F23")
+.getValue()
+);
 
-itemData.powerKVA,
+items.getRange(
+row,
+15
+)
+.setValue(
+sh.getRange("B24")
+.getValue()
+);
 
-itemData.voltage,
-
-qty,
-
-unit,
-
-qty*unit,
-
-existingItem.currency||"",
-
-itemData.deliveryTime,
-
-itemData.warranty,
-
-itemData.notes
-
-]]);
-
-items
-.getRange(
+items.getRange(
 row,
 18
 )
@@ -281,8 +226,7 @@ row,
 new Date()
 );
 
-items
-.getRange(
+items.getRange(
 row,
 19
 )
@@ -290,18 +234,21 @@ row,
 getCurrentUserName()
 );
 
-SpreadsheetApp
-.getUi()
-.alert(
-"Item updated"
+items.getRange(
+row,
+21
+)
+.setValue(
+getCurrentUserName()
 );
 
-}
-
-
-/*****************************************************
-REFRESH
-*****************************************************/
+items.getRange(
+row,
+22
+)
+.setValue(
+new Date()
+);
 
 updateQuotationTotals(
 qID,
@@ -314,6 +261,12 @@ revision
 );
 
 refreshQuotationKPIsFromForm();
+
+SpreadsheetApp
+.getUi()
+.alert(
+"Item updated"
+);
 
 }
 
