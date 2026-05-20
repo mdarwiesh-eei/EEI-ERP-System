@@ -144,7 +144,7 @@ function loadQuotationToForm() {
     "B13:F14",
     "I5:J9",
     "A19:H19",
-    "A23:L90"
+    "A22:L90"
   ]).clearContent();
 
   sh.getRange("B7").setValue(quotation.qID);
@@ -294,7 +294,8 @@ function loadQuotationItemsToForm_(qID, revisionNo) {
   const sh = QFORM.SHEET();
   const itemsSheet = getRequiredSheet_(CONFIG.SHEETS.QUOTATION_ITEMS);
 
-  sh.getRange("A23:L90").clearContent();
+  // Grid starts at A22
+  sh.getRange("A22:L90").clearContent();
 
   if (itemsSheet.getLastRow() < 2) return;
 
@@ -304,7 +305,7 @@ function loadQuotationItemsToForm_(qID, revisionNo) {
 
   const output = [];
 
-  data.forEach(function (row) {
+  data.forEach(function(row) {
 
     const itemQID = row[1];
     const itemRevision = row[2];
@@ -315,30 +316,26 @@ function loadQuotationItemsToForm_(qID, revisionNo) {
       itemRevision === revisionNo &&
       itemStatus !== "Deleted"
     ) {
-
       output.push([
         row[3],   // Line
         row[4],   // Description
         row[5],   // Type
         row[6],   // Power
-        row[7],   // Voltage
+        row[7],   // Ratio
         row[8],   // Qty
         row[9],   // Unit Price
         row[10],  // Total
         row[12],  // Delivery
         row[13],  // Warranty
         row[14],  // Notes
-        ""
+        ""        // Action
       ]);
-
     }
-
   });
 
   if (output.length) {
-    sh.getRange(23, 1, output.length, 12).setValues(output);
+    sh.getRange(22, 1, output.length, 12).setValues(output);
   }
-
 }
 
 
