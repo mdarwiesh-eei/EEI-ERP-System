@@ -1,695 +1,254 @@
 // @ts-nocheck
 /*****************************************************
- EEI ITEM EDITOR
+ EEI - GRID BASED ITEM CONTROL
+ Add / Update / Delete directly from items grid
 *****************************************************/
 
+function saveQuotationItemsGrid() {
 
-/*****************************************************
-LOAD ITEM TO EDITOR
-K17
-*****************************************************/
+  const sh = QFORM.SHEET();
 
-function loadSelectedItemToEditor(){
+  const qID = String(sh.getRange("B7").getDisplayValue()).trim();
+  const revision = String(sh.getRange("E2").getDisplayValue()).trim();
 
-const sh=QFORM.SHEET();
+  if (!qID) {
+    SpreadsheetApp.getUi().alert("Load quotation first.");
+    return;
+  }
 
-const qID=
-sh.getRange("B7").getValue();
+  if (!revision) {
+    SpreadsheetApp.getUi().alert("Select revision first.");
+    return;
+  }
 
-const revision=
-sh.getRange("E2").getValue();
+  const grid = sh.getRange("A22:L90").getValues();
 
-const lineNo=
-Number(
-sh.getRange("B20").getValue()
-);
+  let added = 0;
+  let updated = 0;
+  let deleted = 0;
 
-if(!qID){
-SpreadsheetApp.getUi()
-.alert("Load quotation first");
-return;
-}
+  grid.forEach(function(row) {
 
-if(!lineNo){
-SpreadsheetApp.getUi()
-.alert("Enter line number");
-return;
-}
+    const lineNo = Number(row[0]) || 0;
+    const description = String(row[1] || "").trim();
+    const transformerType = String(row[2] || "").trim();
+    const powerKVA = String(row[3] || "").trim();
+    const voltage = String(row[4] || "").trim();
+    const quantity = Number(row[5]) || 0;
+    const unitPrice = Number(row[6]) || 0;
+    const deliveryTime = String(row[8] || "").trim();
+    const warranty = String(row[9] || "").trim();
+    const notes = String(row[10] || "").trim();
+    const action = String(row[11] || "").trim();
 
-const item=
-getQuotationItemByLine_(
-qID,
-revision,
-lineNo
-);
+    const isBlank =
+      !lineNo &&
+      !description &&
+      !quantity &&
+      !unitPrice;
 
-if(!item){
+    if (isBlank) return;
 
-SpreadsheetApp.getUi()
-.alert("Item not found");
+    if (lineNo && action === "Delete") {
+      softDeleteQuotationItemByLine_(qID, revision, lineNo);
+      deleted++;
+      return;
+    }
 
-return;
-}
+    if (!description) {
+      throw new Error("Description is required at grid line: " + (lineNo || "new"));
+    }
 
-sh.getRange("B21")
-.setValue(item.description);
+    if (quantity <= 0) {
+      throw new Error("Quantity must be greater than zero at grid line: " + (lineNo || "new"));
+    }
 
-sh.getRange("F21")
-.setValue(item.transformerType);
+    if (unitPrice <= 0) {
+      throw new Error("Unit price must be greater than zero at grid line: " + (lineNo || "new"));
+    }
 
-sh.getRange("B22")
-.setValue(item.powerKVA);
+    const itemData = {
+      qID: qID,
+      revisionNo: revision,
+      description: description,
+      transformerType: transformerType,
+      powerKVA: powerKVA,
+      voltage: voltage,
+      quantity: quantity,
+      unitPrice: unitPrice,
+      currency: String(sh.getRange("B11").getDisplayValue()).trim(),
+      deliveryTime: deliveryTime,
+      warranty: warranty,
+      notes: notes
+    };
 
-sh.getRange("F22")
-.setValue(item.voltage);
+    if (!lineNo) {
+      addQuotationItem(itemData);
+      added++;
+      return;
+    }
 
-sh.getRange("B23")
-.setValue(item.quantity);
+    updateQuotationItemByLine_(qID, revision, lineNo, itemData);
+    updated++;
 
-sh.getRange("D23")
-.setValue(item.unitPrice);
+  });
 
-sh.getRange("F23")
-.setValue(item.warranty);
+  updateQuotationTotals(qID, revision);
+  loadQuotationItemsToForm_(qID, revision);
+  refreshQuotationKPIsFromForm();
 
-sh.getRange("H23")
-.setValue(item.delivery);
-
-sh.getRange("B24")
-.setValue(item.notes);
-
-SpreadsheetApp.getUi()
-.alert("Item loaded");
-}
-
-
-
-/*****************************************************
-SAVE ITEM
-K18
-*****************************************************/
-
-function saveSelectedItemChanges() {
-
-const sh = QFORM.SHEET();
-
-const qID =
-String(
-sh.getRange("B7")
-.getDisplayValue()
-).trim();
-
-const revision =
-String(
-sh.getRange("E2")
-.getDisplayValue()
-).trim();
-
-const lineNo =
-Number(
-sh.getRange("B20")
-.getValue()
-);
-
-if (!qID) {
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Load quotation first"
-);
-
-return;
-
-}
-
-if (!revision) {
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Select revision first"
-);
-
-return;
-
-}
-
-if (!lineNo) {
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Line number missing"
-);
-
-return;
-
+  SpreadsheetApp.getUi().alert(
+    "Items saved ✅\nAdded: " + added +
+    "\nUpdated: " + updated +
+    "\nDeleted: " + deleted
+  );
 }
 
 
-/*****************************************************
-READ ITEM EDITOR
-*****************************************************/
+function updateQuotationItemByLine_(qID, revision, lineNo, itemData) {
 
-const description =
-String(
-sh.getRange("B21")
-.getDisplayValue()
-).trim();
+  const item = getQuotationItemByLine_(qID, revision, lineNo);
 
-const transformerType =
-String(
-sh.getRange("F21")
-.getDisplayValue()
-).trim();
+  if (!item) {
+    throw new Error("Item line not found: " + lineNo);
+  }
 
-const powerKVA =
-String(
-sh.getRange("B22")
-.getDisplayValue()
-).trim();
+  if (isDuplicateQuotationItemExcludingLine_(qID, revision, lineNo, itemData)) {
+    throw new Error("Duplicate item at line: " + lineNo);
+  }
 
-const voltage =
-String(
-sh.getRange("F22")
-.getDisplayValue()
-).trim();
+  const sheet = getRequiredSheet_(CONFIG.SHEETS.QUOTATION_ITEMS);
 
-const quantity =
-Number(
-sh.getRange("B23")
-.getValue()
-);
+  const qty = Number(itemData.quantity);
+  const unitPrice = Number(itemData.unitPrice);
+  const total = qty * unitPrice;
 
-const unitPrice =
-Number(
-sh.getRange("D23")
-.getValue()
-);
+  sheet.getRange(item.row, 5, 1, 11).setValues([[
+    itemData.description,
+    itemData.transformerType,
+    itemData.powerKVA,
+    itemData.voltage,
+    qty,
+    unitPrice,
+    total,
+    itemData.currency,
+    itemData.deliveryTime,
+    itemData.warranty,
+    itemData.notes
+  ]]);
 
-const warranty =
-String(
-sh.getRange("F23")
-.getDisplayValue()
-).trim();
-
-const deliveryTime =
-String(
-sh.getRange("H23")
-.getDisplayValue()
-).trim();
-
-const notes =
-String(
-sh.getRange("B24")
-.getDisplayValue()
-).trim();
-
-
-/*****************************************************
-VALIDATION
-*****************************************************/
-
-if (!description) {
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Description is required"
-);
-
-return;
-
-}
-
-if (
-isNaN(quantity) ||
-quantity <= 0
-) {
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Quantity must be greater than zero"
-);
-
-return;
-
-}
-
-if (
-isNaN(unitPrice) ||
-unitPrice <= 0
-) {
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Unit price must be greater than zero"
-);
-
-return;
-
+  sheet.getRange(item.row, 18).setValue(new Date());
+  sheet.getRange(item.row, 19).setValue(getCurrentUserName());
+  sheet.getRange(item.row, 21).setValue(getCurrentUserName());
+  sheet.getRange(item.row, 22).setValue(new Date());
 }
 
 
-/*****************************************************
-ITEM OBJECT
-*****************************************************/
+function softDeleteQuotationItemByLine_(qID, revision, lineNo) {
 
-const itemData = {
+  const item = getQuotationItemByLine_(qID, revision, lineNo);
 
-qID: qID,
+  if (!item) {
+    throw new Error("Item line not found: " + lineNo);
+  }
 
-revisionNo: revision,
+  const sheet = getRequiredSheet_(CONFIG.SHEETS.QUOTATION_ITEMS);
 
-description: description,
-
-transformerType: transformerType,
-
-powerKVA: powerKVA,
-
-voltage: voltage,
-
-quantity: quantity,
-
-unitPrice: unitPrice,
-
-currency:
-String(
-sh.getRange("B11")
-.getDisplayValue()
-).trim(),
-
-deliveryTime: deliveryTime,
-
-warranty: warranty,
-
-notes: notes
-
-};
-
-
-/*****************************************************
-CHECK EXISTING
-*****************************************************/
-
-const existingItem =
-getQuotationItemByLine_(
-qID,
-revision,
-lineNo
-);
-
-
-/*****************************************************
-NEW ITEM
-*****************************************************/
-
-if (!existingItem) {
-
-const result =
-addQuotationItem(
-itemData
-);
-
-if (
-!result ||
-!result.success
-) {
-
-SpreadsheetApp
-.getUi()
-.alert(
-result.error ||
-"Add item failed"
-);
-
-return;
-
-}
-
-SpreadsheetApp
-.getUi()
-.alert(
-"New item added"
-);
-
+  sheet.getRange(item.row, 20).setValue("Deleted");
+  sheet.getRange(item.row, 23).setValue(getCurrentUserName());
+  sheet.getRange(item.row, 24).setValue(new Date());
 }
 
 
-/*****************************************************
-UPDATE ITEM
-*****************************************************/
+function getQuotationItemByLine_(qID, revision, lineNo) {
 
-else {
+  const sheet = getRequiredSheet_(CONFIG.SHEETS.QUOTATION_ITEMS);
 
-const items =
-getRequiredSheet_(
-CONFIG.SHEETS
-.QUOTATION_ITEMS
-);
+  if (sheet.getLastRow() < 2) return null;
 
-const row =
-existingItem.row;
+  const data = sheet
+    .getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn())
+    .getValues();
 
-const totalPrice =
-quantity *
-unitPrice;
+  for (let i = 0; i < data.length; i++) {
 
-items
-.getRange(
-row,
-5,
-1,
-11
-)
-.setValues([[
+    const row = data[i];
+    const status = row[19] || "Active";
 
-description,
-transformerType,
-powerKVA,
-voltage,
-quantity,
-unitPrice,
-totalPrice,
+    if (
+      row[1] === qID &&
+      row[2] === revision &&
+      Number(row[3]) === Number(lineNo) &&
+      status !== "Deleted"
+    ) {
+      return {
+        row: i + 2,
+        data: row
+      };
+    }
+  }
 
-itemData.currency,
-
-deliveryTime,
-warranty,
-notes
-
-]]);
-
-items
-.getRange(
-row,
-18
-)
-.setValue(
-new Date()
-);
-
-items
-.getRange(
-row,
-19
-)
-.setValue(
-getCurrentUserName()
-);
-
-items
-.getRange(
-row,
-21
-)
-.setValue(
-getCurrentUserName()
-);
-
-items
-.getRange(
-row,
-22
-)
-.setValue(
-new Date()
-);
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Item updated"
-);
-
+  return null;
 }
 
 
-/*****************************************************
-REFRESH
-*****************************************************/
+function isDuplicateQuotationItemExcludingLine_(qID, revision, lineNo, itemData) {
 
-updateQuotationTotals(
-qID,
-revision
-);
+  const sheet = getRequiredSheet_(CONFIG.SHEETS.QUOTATION_ITEMS);
 
-loadQuotationItemsToForm_(
-qID,
-revision
-);
+  if (sheet.getLastRow() < 2) return false;
 
-refreshQuotationKPIsFromForm();
+  const data = sheet
+    .getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn())
+    .getValues();
 
+  const newType = String(itemData.transformerType || "")
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .trim();
+
+  if (!newType) return false;
+
+  for (let i = 0; i < data.length; i++) {
+
+    const row = data[i];
+    const status = row[19] || "Active";
+
+    if (status === "Deleted") continue;
+
+    const rowQID = row[1];
+    const rowRevision = row[2];
+    const rowLineNo = Number(row[3]) || 0;
+    const oldType = String(row[5] || "")
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .trim();
+
+    if (
+      rowQID === qID &&
+      rowRevision === revision &&
+      rowLineNo !== Number(lineNo) &&
+      oldType === newType
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 
-/*****************************************************
-DELETE SOFT
-K19
-*****************************************************/
+function archiveQuotationFromForm() {
 
-function deleteSelectedItemSoft(){
+  const sh = QFORM.SHEET();
+  const qID = String(sh.getRange("B7").getDisplayValue()).trim();
 
-const sh=QFORM.SHEET();
+  if (!qID) {
+    SpreadsheetApp.getUi().alert("Load quotation first.");
+    return;
+  }
 
-const qID=
-sh.getRange("B7").getValue();
+  archiveQuotation_(qID);
 
-const revision=
-sh.getRange("E2").getValue();
-
-const lineNo=
-Number(
-sh.getRange("B20")
-.getValue()
-);
-
-const item=
-getQuotationItemByLine_(
-qID,
-revision,
-lineNo
-);
-
-if(!item){
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Item not found"
-);
-
-return;
-}
-
-const result=
-SpreadsheetApp
-.getUi()
-.alert(
-"Delete item ?",
-SpreadsheetApp
-.getUi()
-.ButtonSet.YES_NO
-);
-
-if(
-result!==
-SpreadsheetApp
-.getUi()
-.Button.YES
-){
-return;
-}
-
-const items=
-getRequiredSheet_(
-CONFIG.SHEETS
-.QUOTATION_ITEMS
-);
-
-items
-.getRange(
-item.row,
-20
-)
-.setValue(
-"Deleted"
-);
-
-items
-.getRange(
-item.row,
-23
-)
-.setValue(
-getCurrentUserName()
-);
-
-items
-.getRange(
-item.row,
-24
-)
-.setValue(
-new Date()
-);
-
-updateQuotationTotals(
-qID,
-revision
-);
-
-loadQuotationItemsToForm_(
-qID,
-revision
-);
-
-refreshQuotationKPIsFromForm();
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Item deleted"
-);
-
-}
-
-
-
-/*****************************************************
-ARCHIVE QUOTATION
-K20
-*****************************************************/
-
-function archiveQuotationFromForm(){
-
-const sh=QFORM.SHEET();
-
-const qID=
-sh.getRange("B7")
-.getValue();
-
-if(!qID){
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Load quotation"
-);
-
-return;
-}
-
-archiveQuotation_(
-qID
-);
-
-SpreadsheetApp
-.getUi()
-.alert(
-"Quotation archived"
-);
-
-}
-
-
-
-/*****************************************************
-GET ITEM
-*****************************************************/
-
-function getQuotationItemByLine_(
-qID,
-revision,
-lineNo
-){
-
-const items=
-getRequiredSheet_(
-CONFIG.SHEETS
-.QUOTATION_ITEMS
-);
-
-if(
-items.getLastRow()<2
-){
-return null;
-}
-
-const data=
-items
-.getRange(
-2,
-1,
-items.getLastRow()-1,
-items.getLastColumn()
-)
-.getValues();
-
-for(
-let i=0;
-i<data.length;
-i++
-){
-
-const row=
-data[i];
-
-if(
-
-row[1]===qID &&
-
-row[2]===revision &&
-
-Number(
-row[3]
-)===lineNo &&
-
-row[19]!=="Deleted"
-
-){
-
-return{
-
-row:i+2,
-
-description:
-row[4],
-
-transformerType:
-row[5],
-
-powerKVA:
-row[6],
-
-voltage:
-row[7],
-
-quantity:
-row[8],
-
-unitPrice:
-row[9],
-
-delivery:
-row[12],
-
-warranty:
-row[13],
-
-notes:
-row[14]
-
-};
-
-}
-
-}
-
-return null;
-
+  SpreadsheetApp.getUi().alert("Quotation archived ✅");
 }

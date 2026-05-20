@@ -40,7 +40,7 @@ function onEdit(e) {
         break;
 
       case "K6":
-        addQuotationItemsFromGrid();
+        saveQuotationItemsGrid();
         break;
 
       case "K7":

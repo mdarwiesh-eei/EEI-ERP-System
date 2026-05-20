@@ -230,7 +230,7 @@ function generateQuotationId_() {
 
   let maxNo = 0;
 
-  ids.forEach(function(id) {
+  ids.forEach(function (id) {
 
     const match = id.toString().match(/Q-(\d+)/);
 
@@ -568,7 +568,7 @@ function addQuotationItemsBatch(data) {
     const rowsToInsert = [];
     const batchKeys = {};
 
-    data.items.forEach(function(item, index) {
+    data.items.forEach(function (item, index) {
 
       const quantity = Number(item.quantity);
       const unitPrice = Number(item.unitPrice);
@@ -760,9 +760,7 @@ function buildQuotationItemKey_(qID, revisionNo, item) {
   return [
     qID || "",
     revisionNo || "",
-    item.transformerType || "",
-    item.powerKVA || "",
-    item.voltage || ""
+    item.transformerType || ""
   ]
     .join("|")
     .toString()
@@ -866,7 +864,7 @@ function getCurrentMaxQuotationLineNo_(qID, revisionNo) {
 
   let maxLine = 0;
 
-  data.forEach(function(row) {
+  data.forEach(function (row) {
 
     const existingQID = row[1];
     const existingRevision = row[2];
@@ -923,7 +921,7 @@ function updateQuotationTotals(qID, revisionNo) {
       .getRange(2, 1, items.getLastRow() - 1, items.getLastColumn())
       .getValues();
 
-    itemsData.forEach(function(row) {
+    itemsData.forEach(function (row) {
 
       const itemQID = row[1];
       const itemRevision = row[2];
