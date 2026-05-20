@@ -8,7 +8,7 @@
  EEI GLOBAL TRIGGERS
 *****************************************************/
 
-function onEdit(e) {
+function handleQuotationEdit(e) {
 
   if (!e) return;
 
@@ -280,4 +280,29 @@ function cancelQuotation_() {
       "Cancel workflow next"
     );
 
+}
+
+
+
+function setupInstallableOnEditTrigger() {
+
+  const ss = SpreadsheetApp.getActive();
+
+  const triggers = ScriptApp.getProjectTriggers();
+
+  triggers.forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === "handleQuotationEdit") {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  ScriptApp
+    .newTrigger("handleQuotationEdit")
+    .forSpreadsheet(ss)
+    .onEdit()
+    .create();
+
+  SpreadsheetApp
+    .getUi()
+    .alert("Installable onEdit trigger created ✅");
 }
