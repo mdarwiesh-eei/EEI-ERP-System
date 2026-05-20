@@ -154,70 +154,38 @@ function buildQuotationSelectorForForm() {
 
 function buildAssignedUserSelector() {
 
-  const ss =
-    SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const form = ss.getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+  const usersSheet = ss.getSheetByName(CONFIG.SHEETS.USERS);
 
-  const users =
-    ss.getSheetByName(CONFIG.SHEETS.USERS);
+  if (!form || !usersSheet) return;
 
-  const form =
-    ss.getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
+  const targetCell = form.getRange("E9");
 
-  if (!users || !form) return;
-  if (users.getLastRow() < 2) return;
+  targetCell.clearContent();
+  targetCell.clearDataValidations();
 
-  const data =
-    users
-      .getRange(
-        2,
-        1,
-        users.getLastRow() - 1,
-        6
-      )
-      .getValues();
+  if (usersSheet.getLastRow() < 2) return;
 
-  const allowedRoles = [
-    "Sales",
-    "Engineering",
-    "Admin"
-  ];
+  const users = usersSheet
+    .getRange(2, 2, usersSheet.getLastRow() - 1, 2)
+    .getValues()
+    .filter(function(row) {
+      return row[0] && row[1];
+    })
+    .map(function(row) {
+      return row[1] + " | " + row[0];
+    });
 
-  const list = [];
+  if (!users.length) return;
 
-  data.forEach(function (row) {
+  const rule = SpreadsheetApp
+    .newDataValidation()
+    .requireValueInList(users, true)
+    .setAllowInvalid(false)
+    .build();
 
-    const email = row[1];
-    const name = row[2];
-    const role = row[3];
-    const status = row[5];
-
-    if (
-      email &&
-      name &&
-      allowedRoles.includes(role) &&
-      status === "Active"
-    ) {
-
-      list.push(
-        name + " | " + email
-      );
-
-    }
-
-  });
-
-  if (!list.length) return;
-
-  const rule =
-    SpreadsheetApp
-      .newDataValidation()
-      .requireValueInList(list, true)
-      .setAllowInvalid(false)
-      .build();
-
-  form.getRange("E5")
-    .clearDataValidations()
-    .setDataValidation(rule);
+  targetCell.setDataValidation(rule);
 }
 
 
