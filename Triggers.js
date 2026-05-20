@@ -19,6 +19,19 @@ function onEdit(e) {
   const cell =
     e.range.getA1Notation();
 
+  // When quotation selector changes, rebuild revision selector
+  if (cell === "B2") {
+
+    const selectorValue = e.range.getValue();
+    const qID = extractQuotationIDFromSelector_(selectorValue);
+
+    if (qID) {
+      buildRevisionSelectorForForm(qID);
+    }
+
+    return;
+  }
+
   const value =
     e.range.getValue();
 
@@ -80,8 +93,6 @@ function onEdit(e) {
         openQuotationFolderFromForm();
         break;
 
-      // Item Editor
-
       case "K17":
         loadSelectedItemToEditor();
         break;
@@ -97,28 +108,24 @@ function onEdit(e) {
       case "K20":
         archiveQuotationFromForm();
         break;
-
     }
 
-  }
-  catch(err){
+  } catch (err) {
 
     SpreadsheetApp
-    .getUi()
-    .alert(
-      "Trigger Error:\n"+
-      err.message
-    );
+      .getUi()
+      .alert(
+        "Trigger Error:\n" +
+        err.message
+      );
 
     Logger.log(err);
 
-  }
-  finally{
+  } finally {
 
     e.range.setValue(false);
 
   }
-
 }
 
 

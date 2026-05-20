@@ -99,50 +99,78 @@ function refreshQuotationForm() {
 function loadQuotationToForm() {
 
   const sh = QFORM.SHEET();
-  const data = QFORM.getData();
 
-  if (!data.quotationSelector) {
+  const selectorValue = sh.getRange("B2").getValue();
+  const selectedRevision = sh.getRange("E2").getValue();
+
+  if (!selectorValue) {
     SpreadsheetApp.getUi().alert("Select quotation first.");
     return;
   }
 
-  const qID = extractQuotationIDFromSelector_(data.quotationSelector);
+  const qID = extractQuotationIDFromSelector_(selectorValue);
 
   if (!qID) {
-    SpreadsheetApp.getUi().alert("Invalid quotation selector.");
+    SpreadsheetApp.getUi().alert("Could not read quotation ID from selector.");
     return;
   }
 
   const quotation = getQuotationById_(qID);
 
   if (!quotation) {
-    SpreadsheetApp.getUi().alert("Quotation not found.");
+    SpreadsheetApp.getUi().alert("Quotation not found: " + qID);
     return;
   }
 
-  sh.getRange("B7").setValue(quotation.qID);
-  sh.getRange("B5").setValue(quotation.customerName);
-  sh.getRange("E5").setValue(quotation.projectName);
-  sh.getRange("E7").setValue(quotation.status);
-  sh.getRange("B9").setValue(quotation.rfqDate);
-  sh.getRange("E9").setValue(quotation.assignedTo);
-  sh.getRange("B11").setValue(quotation.currency);
-  sh.getRange("E11").setValue(quotation.customerRFQLink);
-  sh.getRange("B13").setValue(quotation.notes);
+  let revisionNo = selectedRevision;
 
-  buildRevisionSelectorForForm(quotation.qID);
-
-  if (!sh.getRange("E2").getValue()) {
-    sh.getRange("E2").setValue(quotation.currentRevision);
+  if (!revisionNo || revisionNo === "No QID") {
+    revisionNo = quotation.currentRevision || "R00";
   }
 
-  loadQuotationItemsToForm_(quotation.qID, sh.getRange("E2").getValue());
+  // Clear old loaded data first
+  sh.getRangeList([
+    "B5:C5",
+    "E5:F5",
+    "B7:C7",
+    "E7:F7",
+    "B9:C9",
+    "E9:F9",
+    "B11:C11",
+    "E11:F11",
+    "B13:F14",
+    "I5:J9",
+    "A19:H19",
+    "A23:L90"
+  ]).clearContent();
+
+  // Header
+  sh.getRange("B7").setValue(quotation.qID);
+  sh.getRange("B5").setValue(quotation.customerName || "");
+  sh.getRange("E5").setValue(quotation.projectName || "");
+  sh.getRange("E7").setValue(quotation.status || "");
+  sh.getRange("B9").setValue(quotation.rfqDate || "");
+  sh.getRange("E9").setValue(quotation.assignedTo || "");
+  sh.getRange("B11").setValue(quotation.currency || "");
+  sh.getRange("E11").setValue(quotation.customerRFQLink || "");
+  sh.getRange("B13").setValue(quotation.notes || "");
+
+  // Rebuild revision selector then keep chosen revision
+  buildRevisionSelectorForForm(quotation.qID);
+  sh.getRange("E2").setValue(revisionNo);
+
+  // Load selected revision data
+  loadQuotationItemsToForm_(quotation.qID, revisionNo);
+
+  if (typeof loadQuotationTermsToForm_ === "function") {
+    loadQuotationTermsToForm_(quotation.qID, revisionNo);
+  }
 
   refreshQuotationKPIsFromForm();
 
   SpreadsheetApp
     .getUi()
-    .alert("Quotation loaded ✅");
+    .alert("Quotation loaded ✅ " + quotation.qID + " / " + revisionNo);
 }
 
 
