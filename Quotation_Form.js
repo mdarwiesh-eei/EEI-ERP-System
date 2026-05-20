@@ -487,7 +487,7 @@ function getCreateQuotationDialogData() {
         )
         .getValues();
 
-    data.forEach(function(row) {
+    data.forEach(function (row) {
 
       if (row[0] && row[1] && row[10] === "Active") {
         customers.push({
@@ -514,7 +514,7 @@ function getCreateQuotationDialogData() {
         )
         .getValues();
 
-    data.forEach(function(row) {
+    data.forEach(function (row) {
 
       if (row[0] && row[1]) {
         users.push({

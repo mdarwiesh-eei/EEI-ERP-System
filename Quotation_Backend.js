@@ -153,37 +153,6 @@ function createQuotation(data) {
 }
 
 
-/*****************************************************
- CREATE QUOTATION VALIDATION
-*****************************************************/
-
-function validateCreateQuotationInput_(data) {
-
-  if (!data) {
-    throw new Error("Missing quotation data.");
-  }
-
-  if (!data.customerID) {
-    throw new Error("Customer is required.");
-  }
-
-  if (!data.projectName) {
-    throw new Error("Project name is required.");
-  }
-
-  if (data.currency) {
-
-    const allowed = [
-      CONFIG.CURRENCY.EGP,
-      CONFIG.CURRENCY.USD,
-      CONFIG.CURRENCY.EUR
-    ];
-
-    if (!allowed.includes(data.currency)) {
-      throw new Error("Invalid currency.");
-    }
-  }
-}
 
 
 /*****************************************************
