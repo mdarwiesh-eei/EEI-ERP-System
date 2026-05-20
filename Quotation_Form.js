@@ -167,9 +167,13 @@ function loadQuotationToForm() {
 
   refreshQuotationKPIsFromForm();
 
+  // Reset selectors after load
+  sh.getRange("B2").clearContent();
+  sh.getRange("E2").clearContent();
+
   SpreadsheetApp
     .getUi()
-    .alert("Quotation loaded ✅ " + quotation.qID + " / " + selectedRevision);
+    .alert("Quotation loaded ✅ " + quotation.qID + " - " + selectedRevision);
 }
 
 /*****************************************************
@@ -300,7 +304,7 @@ function loadQuotationItemsToForm_(qID, revisionNo) {
 
   const output = [];
 
-  data.forEach(function(row) {
+  data.forEach(function (row) {
 
     const itemQID = row[1];
     const itemRevision = row[2];
@@ -436,3 +440,165 @@ function openUrl_(url) {
     .getUi()
     .showModalDialog(html, "Opening...");
 }
+
+
+
+function showCreateQuotationDialog() {
+
+  const html = HtmlService
+    .createHtmlOutputFromFile("CreateQuotationDialog")
+    .setWidth(520)
+    .setHeight(620);
+
+  SpreadsheetApp
+    .getUi()
+    .showModalDialog(
+      html,
+      "Create New Quotation"
+    );
+}
+
+
+function getCreateQuotationDialogData() {
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const customersSheet =
+    ss.getSheetByName(CONFIG.SHEETS.CUSTOMERS);
+
+  const usersSheet =
+    ss.getSheetByName(CONFIG.SHEETS.USERS);
+
+  const customers = [];
+  const users = [];
+
+  if (
+    customersSheet &&
+    customersSheet.getLastRow() >= 3
+  ) {
+
+    const data =
+      customersSheet
+        .getRange(
+          3,
+          1,
+          customersSheet.getLastRow() - 2,
+          11
+        )
+        .getValues();
+
+    data.forEach(function(row) {
+
+      if (row[0] && row[1] && row[10] === "Active") {
+        customers.push({
+          id: row[0],
+          name: row[1]
+        });
+      }
+
+    });
+  }
+
+  if (
+    usersSheet &&
+    usersSheet.getLastRow() >= 2
+  ) {
+
+    const data =
+      usersSheet
+        .getRange(
+          2,
+          2,
+          usersSheet.getLastRow() - 1,
+          2
+        )
+        .getValues();
+
+    data.forEach(function(row) {
+
+      if (row[0] && row[1]) {
+        users.push({
+          email: row[0],
+          name: row[1]
+        });
+      }
+
+    });
+  }
+
+  const today =
+    Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      "yyyy-MM-dd"
+    );
+
+  return {
+    customers: customers,
+    users: users,
+    today: today
+  };
+}
+
+
+function submitCreateQuotationDialog(payload) {
+
+  try {
+
+    if (!payload.customerID) {
+      throw new Error("Customer is required.");
+    }
+
+    if (!payload.projectName) {
+      throw new Error("Project name is required.");
+    }
+
+    const result =
+      createQuotation({
+        customerID: payload.customerID,
+        projectName: payload.projectName,
+        rfqDate: payload.rfqDate
+          ? new Date(payload.rfqDate)
+          : "",
+        assignedTo: payload.assignedTo,
+        currency: payload.currency,
+        customerRFQLink: payload.customerRFQLink,
+        notes: payload.notes
+      });
+
+    if (!result || !result.success) {
+      throw new Error(
+        result && result.error
+          ? result.error
+          : "Create quotation failed."
+      );
+    }
+
+    buildQuotationSelectorForForm();
+
+    const sh = QFORM.SHEET();
+
+    sh.getRange("B2")
+      .setValue(result.qID);
+
+    buildRevisionSelectorForForm(result.qID);
+
+    sh.getRange("E2")
+      .setValue(result.revisionNo);
+
+    loadQuotationToForm();
+
+    return result;
+
+  } catch (err) {
+
+    return {
+      success: false,
+      error: err.message
+    };
+
+  }
+}
+
+
+

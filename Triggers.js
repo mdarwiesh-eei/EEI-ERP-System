@@ -54,7 +54,7 @@ function onEdit(e) {
     switch (cell) {
 
       case "K4":
-        createQuotationFromForm();
+        showCreateQuotationDialog();
         break;
 
       case "K5":
@@ -188,7 +188,7 @@ function fillItemDataFromType_(targetRow) {
 
 function getTransformerTypeIndexes_(headers) {
 
-  const normalized = headers.map(function(h) {
+  const normalized = headers.map(function (h) {
     return String(h || "")
       .toLowerCase()
       .replace(/\s+/g, "")

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 16px;
+      color: #333;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #861F2D;
+      font-size: 18px;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      margin-top: 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    textarea {
+      height: 70px;
+      resize: vertical;
+    }
+
+    .actions {
+      margin-top: 18px;
+      text-align: right;
+    }
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .primary {
+      background: #861F2D;
+      color: white;
+    }
+
+    .secondary {
+      background: #eee;
+      margin-right: 8px;
+    }
+
+    .msg {
+      margin-top: 12px;
+      color: #861F2D;
+      font-weight: bold;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Create New Quotation</h2>
+
+  <label>Customer</label>
+  <select id="customer"></select>
+
+  <label>Project Name</label>
+  <input id="projectName" type="text">
+
+  <label>RFQ Date</label>
+  <input id="rfqDate" type="date">
+
+  <label>Assigned To</label>
+  <select id="assignedTo"></select>
+
+  <label>Currency</label>
+  <select id="currency">
+    <option value="EGP">EGP</option>
+    <option value="USD">USD</option>
+    <option value="EUR">EUR</option>
+  </select>
+
+  <label>Customer RFQ Link</label>
+  <input id="customerRFQLink" type="text">
+
+  <label>Notes</label>
+  <textarea id="notes"></textarea>
+
+  <div class="actions">
+    <button class="secondary" onclick="google.script.host.close()">Cancel</button>
+    <button class="primary" onclick="submitForm()">Create</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <script>
+    google.script.run
+      .withSuccessHandler(initForm)
+      .getCreateQuotationDialogData();
+
+    function initForm(data) {
+      const customer = document.getElementById("customer");
+      const assignedTo = document.getElementById("assignedTo");
+
+      customer.innerHTML = "";
+      assignedTo.innerHTML = "";
+
+      data.customers.forEach(function(c) {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.name + " | " + c.id;
+        customer.appendChild(opt);
+      });
+
+      data.users.forEach(function(u) {
+        const opt = document.createElement("option");
+        opt.value = u.name;
+        opt.textContent = u.name + " | " + u.email;
+        assignedTo.appendChild(opt);
+      });
+
+      document.getElementById("rfqDate").value = data.today;
+      document.getElementById("currency").value = "EGP";
+    }
+
+    function submitForm() {
+      const payload = {
+        customerID: document.getElementById("customer").value,
+        projectName: document.getElementById("projectName").value,
+        rfqDate: document.getElementById("rfqDate").value,
+        assignedTo: document.getElementById("assignedTo").value,
+        currency: document.getElementById("currency").value,
+        customerRFQLink: document.getElementById("customerRFQLink").value,
+        notes: document.getElementById("notes").value
+      };
+
+      document.getElementById("msg").textContent = "Creating quotation...";
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.success) {
+            document.getElementById("msg").textContent =
+              "Quotation created: " + res.qID;
+
+            setTimeout(function() {
+              google.script.host.close();
+            }, 800);
+          } else {
+            document.getElementById("msg").textContent =
+              res.error || "Create failed";
+          }
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById("msg").textContent = err.message;
+        })
+        .submitCreateQuotationDialog(payload);
+    }
+  </script>
+
+</body>
+</html>
