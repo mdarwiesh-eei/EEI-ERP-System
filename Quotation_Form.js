@@ -211,6 +211,7 @@ function createQuotationFromForm() {
     SpreadsheetApp.getUi().alert("Quotation created: " + result.qID);
   }
 
+  createdBy: getCurrentUserName()
 }
 
 
@@ -556,8 +557,8 @@ function submitCreateQuotationDialog(payload) {
 
     const result =
       createQuotation({
-        createdBy: payload.createdBy,
 
+        createdBy: payload.createdBy || getCurrentUserName(),
         customerID: payload.customerID,
         projectName: payload.projectName,
         rfqDate: payload.rfqDate

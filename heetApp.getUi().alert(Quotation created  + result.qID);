@@ -1,0 +1,22 @@
+[1mdiff --git a/Quotation_Form.js b/Quotation_Form.js[m
+[1mindex 0ead83f..47f350c 100644[m
+[1m--- a/Quotation_Form.js[m
+[1m+++ b/Quotation_Form.js[m
+[36m@@ -211,6 +211,7 @@[m [mfunction createQuotationFromForm() {[m
+     SpreadsheetApp.getUi().alert("Quotation created: " + result.qID);[m
+   }[m
+ [m
+[32m+[m[32m  createdBy: getCurrentUserName(),[m
+ }[m
+ [m
+ [m
+[36m@@ -556,8 +557,8 @@[m [mfunction submitCreateQuotationDialog(payload) {[m
+ [m
+     const result =[m
+       createQuotation({[m
+[31m-        createdBy: payload.createdBy,[m
+ [m
+[32m+[m[32m        createdBy: payload.createdBy || getCurrentUserName(),[m
+         customerID: payload.customerID,[m
+         projectName: payload.projectName,[m
+         rfqDate: payload.rfqDate[m
