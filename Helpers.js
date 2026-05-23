@@ -7,22 +7,46 @@ function extractIdFromUrl(url) {
 
 // Get logged user name
 function getCurrentUserName() {
+
+  let userEmail = "";
+
   try {
-    const userEmail = Session.getActiveUser().getEmail();
+    userEmail = Session.getActiveUser().getEmail();
+  } catch (e) {}
+
+  if (!userEmail) {
+    try {
+      userEmail = Session.getEffectiveUser().getEmail();
+    } catch (e) {}
+  }
+
+  if (!userEmail) {
+    return "Unknown_User";
+  }
+
+  try {
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const usersSheet = ss.getSheetByName(CONFIG.SHEETS.USERS);
 
-    if (!usersSheet) return userEmail;
+    if (!usersSheet || usersSheet.getLastRow() < 2) {
+      return userEmail;
+    }
 
-    const data = usersSheet.getRange("B2:C" + usersSheet.getLastRow()).getValues();
+    const data = usersSheet
+      .getRange("B2:C" + usersSheet.getLastRow())
+      .getValues();
 
     for (let i = 0; i < data.length; i++) {
-      if (data[i][0] === userEmail) return data[i][1];
+      if (String(data[i][0]).trim().toLowerCase() === userEmail.toLowerCase()) {
+        return data[i][1] || userEmail;
+      }
     }
 
     return userEmail;
+
   } catch (e) {
-    return "System_User";
+    return userEmail;
   }
 }
 

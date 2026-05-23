@@ -31,8 +31,7 @@ const QUOTATION_WORKFLOW = {
     "Lost",
     "Cancelled"
   ],
-
-  Revised: [
+: [
     "Under Review",
     "Cancelled"
   ],
