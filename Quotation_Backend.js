@@ -46,6 +46,7 @@ function createQuotation(data) {
     const now = new Date();
     const user =
       data.createdBy ||
+      data.assignedTo ||
       getCurrentUserName();
 
     const quotationRow = [[
