@@ -44,10 +44,13 @@ function createQuotation(data) {
     );
 
     const now = new Date();
+
     const user =
-      data.createdBy ||
-      data.assignedTo ||
-      getCurrentUserName();
+      data.createdBy &&
+      data.createdBy !== "Unknown_User" &&
+      data.createdBy !== "System_User"
+        ? data.createdBy
+        : data.assignedTo || getCurrentUserName();
 
     const quotationRow = [[
       qID,
@@ -140,7 +143,10 @@ function createQuotation(data) {
 
   } catch (err) {
 
-    SpreadsheetApp.getUi().alert("Create Quotation Error: " + err.message);
+    SpreadsheetApp
+      .getUi()
+      .alert("Create Quotation Error: " + err.message);
+
     Logger.log(err);
 
     return {
@@ -154,8 +160,6 @@ function createQuotation(data) {
 
   }
 }
-
-
 
 
 /*****************************************************
@@ -881,6 +885,8 @@ function updateQuotationTotals(qID, revisionNo) {
       revisionNo,
       quotation.currency || CONFIG.CURRENCY.EGP
     );
+
+    quotations.getRange(getQuotationById_(qID).row, 20).setValue(user);
 
     terms = getQuotationTerms_(qID, revisionNo);
   }
