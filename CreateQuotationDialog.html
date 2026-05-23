@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <base target="_top">
   <style>
@@ -22,7 +23,9 @@
       font-size: 13px;
     }
 
-    input, select, textarea {
+    input,
+    select,
+    textarea {
       width: 100%;
       box-sizing: border-box;
       padding: 8px;
@@ -111,20 +114,23 @@
       .getCreateQuotationDialogData();
 
     function initForm(data) {
+
+      window.currentUser = data.currentUser;
+
       const customer = document.getElementById("customer");
       const assignedTo = document.getElementById("assignedTo");
 
       customer.innerHTML = "";
       assignedTo.innerHTML = "";
 
-      data.customers.forEach(function(c) {
+      data.customers.forEach(function (c) {
         const opt = document.createElement("option");
         opt.value = c.id;
         opt.textContent = c.name + " | " + c.id;
         customer.appendChild(opt);
       });
 
-      data.users.forEach(function(u) {
+      data.users.forEach(function (u) {
         const opt = document.createElement("option");
         opt.value = u.name;
         opt.textContent = u.name + " | " + u.email;
@@ -144,17 +150,18 @@
         currency: document.getElementById("currency").value,
         customerRFQLink: document.getElementById("customerRFQLink").value,
         notes: document.getElementById("notes").value
+        createdBy: window.currentUser
       };
 
       document.getElementById("msg").textContent = "Creating quotation...";
 
       google.script.run
-        .withSuccessHandler(function(res) {
+        .withSuccessHandler(function (res) {
           if (res && res.success) {
             document.getElementById("msg").textContent =
               "Quotation created: " + res.qID;
 
-            setTimeout(function() {
+            setTimeout(function () {
               google.script.host.close();
             }, 800);
           } else {
@@ -162,7 +169,7 @@
               res.error || "Create failed";
           }
         })
-        .withFailureHandler(function(err) {
+        .withFailureHandler(function (err) {
           document.getElementById("msg").textContent = err.message;
         })
         .submitCreateQuotationDialog(payload);
@@ -170,4 +177,5 @@
   </script>
 
 </body>
+
 </html>

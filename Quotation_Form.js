@@ -305,7 +305,7 @@ function loadQuotationItemsToForm_(qID, revisionNo) {
 
   const output = [];
 
-  data.forEach(function(row) {
+  data.forEach(function (row) {
 
     const itemQID = row[1];
     const itemRevision = row[2];
@@ -530,10 +530,14 @@ function getCreateQuotationDialogData() {
       "yyyy-MM-dd"
     );
 
+  const currentUser =
+    getCurrentUserName();
+
   return {
     customers: customers,
     users: users,
-    today: today
+    today: today,
+    currentUser: currentUser
   };
 }
 
