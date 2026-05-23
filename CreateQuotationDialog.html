@@ -115,7 +115,7 @@
 
     function initForm(data) {
 
-      window.currentUser = data.currentUser;
+      window.currentUser = data.currentUser || "";
 
       const customer = document.getElementById("customer");
       const assignedTo = document.getElementById("assignedTo");

@@ -556,6 +556,8 @@ function submitCreateQuotationDialog(payload) {
 
     const result =
       createQuotation({
+        createdBy: payload.createdBy,
+
         customerID: payload.customerID,
         projectName: payload.projectName,
         rfqDate: payload.rfqDate
