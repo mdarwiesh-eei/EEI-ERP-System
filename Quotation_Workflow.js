@@ -31,10 +31,7 @@ const QUOTATION_WORKFLOW = {
     "Lost",
     "Cancelled"
   ],
-: [
-    "Under Review",
-    "Cancelled"
-  ],
+
 
   Won: [],
 
