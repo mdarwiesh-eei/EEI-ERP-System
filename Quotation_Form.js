@@ -537,7 +537,7 @@ function getCreateQuotationDialogData() {
     customers: customers,
     users: users,
     today: today,
-    currentUser: currentUser
+    currentUser: getCurrentUserName()
   };
 }
 

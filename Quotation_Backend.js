@@ -44,7 +44,9 @@ function createQuotation(data) {
     );
 
     const now = new Date();
-    const user = getCurrentUserName();
+    const user =
+      data.createdBy ||
+      getCurrentUserName();
 
     const quotationRow = [[
       qID,
