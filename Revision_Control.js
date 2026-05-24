@@ -23,30 +23,118 @@ function createQuotationRevision(qID) {
     }
 
     if (quotation.recordStatus === "Archived") {
-      throw new Error("Archived quotation cannot create revisions.");
+      throw new Error(
+        "Archived quotation cannot create revisions."
+      );
     }
 
-    const oldRevision = quotation.currentRevision;
-    const newRevision = generateNextRevisionNo_(oldRevision);
-    const newStatus = CONFIG.QUOTATION_STATUS.DRAFT;
+    const oldRevision =
+      quotation.currentRevision;
+
+    const newRevision =
+      generateNextRevisionNo_(oldRevision);
+
+    const revisionsSheet =
+      getRequiredSheet_(
+        CONFIG.SHEETS.QUOTATION_REVISIONS
+      );
+
+    /*****************************************************
+     DUPLICATE REVISION PROTECTION
+    *****************************************************/
+
+    const revisionID =
+      qID + "-" + newRevision;
+
+    if (revisionExists_(revisionID)) {
+
+      SpreadsheetApp
+        .getUi()
+        .alert(
+          "Revision already exists: " +
+          revisionID
+        );
+
+      return {
+        success: false,
+        error: "Duplicate revision"
+      };
+    }
+
+    /*****************************************************
+     CREATE NEW REVISION
+    *****************************************************/
 
     const now = new Date();
-    const user = getCurrentUserName();
 
-    markOldRevisionSuperseded_(qID, oldRevision);
+    const user =
+      getCurrentUserName();
 
-    copyRevisionItems_(qID, oldRevision, newRevision);
+    const newStatus =
+      CONFIG.QUOTATION_STATUS.DRAFT;
 
-    copyRevisionTerms_(qID, oldRevision, newRevision);
+    /*****************************************************
+     LOCK OLD REVISION
+    *****************************************************/
 
-    createRevisionHeader_(
+    markOldRevisionSuperseded_(
       qID,
-      newRevision,
-      oldRevision,
-      newStatus,
-      now,
-      user
+      oldRevision
     );
+
+    /*****************************************************
+     COPY DATA
+    *****************************************************/
+
+    copyRevisionItems_(
+      qID,
+      oldRevision,
+      newRevision
+    );
+
+    copyRevisionTerms_(
+      qID,
+      oldRevision,
+      newRevision
+    );
+
+    /*****************************************************
+     CREATE REVISION HEADER
+    *****************************************************/
+
+    revisionsSheet
+      .getRange(
+        getNextDataRow_(revisionsSheet),
+        1,
+        1,
+        20
+      )
+      .setValues([[
+        revisionID,
+        qID,
+        newRevision,
+        newStatus,
+        "Revision created from " + oldRevision,
+        now,
+        user,
+        oldRevision,
+        "",
+        0,
+        0,
+        0,
+        0,
+        "",
+        "",
+        "",
+        "",
+        "",
+        true,
+        ""
+      ]]);
+
+    /*****************************************************
+     UPDATE MASTER QUOTATION
+    *****************************************************/
 
     updateQuotationCurrentRevision_(
       quotation.row,
@@ -56,28 +144,57 @@ function createQuotationRevision(qID) {
       user
     );
 
+    /*****************************************************
+     LOG
+    *****************************************************/
+
     logQuotationStatus_(
       qID,
       newRevision,
       oldRevision,
       newStatus,
       "Revision",
-      "New revision created from " + oldRevision
+      "New revision created from " +
+      oldRevision
     );
+
+    if (typeof logAction === "function") {
+
+      logAction({
+        module: "Quotation Revision",
+        action: "CREATE REVISION",
+        recordID: revisionID,
+        field: "Revision",
+        oldValue: oldRevision,
+        newValue: newRevision,
+        notes:
+          "New revision created"
+      });
+    }
+
+    SpreadsheetApp
+      .getUi()
+      .alert(
+        "Revision created: " +
+        newRevision
+      );
 
     return {
       success: true,
       qID: qID,
-      oldRevision: oldRevision,
-      revision: newRevision,
-      status: newStatus
+      revision: newRevision
     };
 
   } catch (err) {
 
     SpreadsheetApp
       .getUi()
-      .alert("Create Revision Error: " + err.message);
+      .alert(
+        "Create Revision Error: " +
+        err.message
+      );
+
+    Logger.log(err);
 
     return {
       success: false,
@@ -89,6 +206,36 @@ function createQuotationRevision(qID) {
     lock.releaseLock();
 
   }
+}
+
+
+/*****************************************************
+ REVISION EXISTS
+*****************************************************/
+
+function revisionExists_(revisionID) {
+
+  const sheet =
+    getRequiredSheet_(
+      CONFIG.SHEETS.QUOTATION_REVISIONS
+    );
+
+  if (sheet.getLastRow() < 2) {
+    return false;
+  }
+
+  const ids =
+    sheet
+      .getRange(
+        2,
+        1,
+        sheet.getLastRow() - 1,
+        1
+      )
+      .getValues()
+      .flat();
+
+  return ids.includes(revisionID);
 }
 
 
