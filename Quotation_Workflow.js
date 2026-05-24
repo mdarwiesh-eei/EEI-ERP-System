@@ -174,6 +174,11 @@ function changeQuotationStatus_(
     const currentStatus =
       quotation.status;
 
+    ensureCurrentRevisionForWorkflow_(
+      qID,
+      quotation.currentRevision
+    );
+
     refreshQuotationKPIsFromForm();
 
     // ===============================

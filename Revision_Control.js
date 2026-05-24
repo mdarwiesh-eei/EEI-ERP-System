@@ -324,3 +324,67 @@ function generateNextRevisionNo_(currentRevision) {
 
   return "R" + ("00" + (n + 1)).slice(-2);
 }
+
+
+
+
+function getCurrentRevisionNo_(qID) {
+
+  const quotation = getQuotationById_(qID);
+
+  if (!quotation) {
+    throw new Error("Quotation not found.");
+  }
+
+  return quotation.currentRevision;
+}
+
+
+function isCurrentRevision_(qID, revisionNo) {
+
+  const currentRevision =
+    getCurrentRevisionNo_(qID);
+
+  return String(currentRevision) === String(revisionNo);
+}
+
+
+function ensureCurrentRevisionEditable_(qID, revisionNo) {
+
+  const quotation = getQuotationById_(qID);
+
+  if (!quotation) {
+    throw new Error("Quotation not found.");
+  }
+
+  if (quotation.recordStatus === "Archived") {
+    throw new Error("Archived quotation cannot be edited.");
+  }
+
+  if (!isCurrentRevision_(qID, revisionNo)) {
+    throw new Error(
+      "This revision is superseded and cannot be edited."
+    );
+  }
+
+  if (!canEditQuotation_(quotation.status)) {
+    throw new Error(
+      "Editing is not allowed for status: " +
+      quotation.status
+    );
+  }
+
+  return true;
+}
+
+
+function ensureCurrentRevisionForWorkflow_(qID, revisionNo) {
+
+  if (!isCurrentRevision_(qID, revisionNo)) {
+    throw new Error(
+      "Workflow actions are allowed only on the current revision."
+    );
+  }
+
+  return true;
+}

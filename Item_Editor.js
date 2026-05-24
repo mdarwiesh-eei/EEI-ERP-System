@@ -11,6 +11,8 @@ function saveQuotationItemsGrid() {
     const qID = String(sh.getRange("B7").getDisplayValue()).trim();
     const revision = String(sh.getRange("E2").getDisplayValue()).trim();
 
+    ensureCurrentRevisionEditable_(qID, revision);
+
     if (!qID) {
         SpreadsheetApp.getUi().alert("Load quotation first.");
         return;

@@ -369,6 +369,8 @@ function addQuotationItem(data) {
 
     const revisionNo = data.revisionNo || quotation.currentRevision;
 
+    ensureCurrentRevisionEditable_(data.qID, revisionNo);
+
     if (isDuplicateQuotationItem_(data.qID, revisionNo, data)) {
       throw new Error("This item already exists in this quotation revision.");
     }
@@ -535,6 +537,7 @@ function addQuotationItemsBatch(data) {
     }
 
     const revisionNo = data.revisionNo || quotation.currentRevision;
+    ensureCurrentRevisionEditable_(data.qID, revisionNo);
 
     const now = new Date();
     const user = getCurrentUserName();
