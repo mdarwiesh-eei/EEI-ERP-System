@@ -1,330 +1,326 @@
 // @ts-nocheck
 /*****************************************************
  EEI REVISION CONTROL
+ Revision isolation:
+ - Copy Active items only
+ - Copy 24 columns
+ - Old revision = Superseded
+ - New revision = Draft
+ - Quotations status = current revision status
 *****************************************************/
 
-function createQuotationRevision(qID){
+function createQuotationRevision(qID) {
 
-const lock=LockService.getScriptLock();
-lock.waitLock(30000);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
 
-try{
+  try {
 
-const quotation=getQuotationById_(qID);
+    const quotation = getQuotationById_(qID);
 
-if(!quotation){
-throw new Error("Quotation not found");
-}
+    if (!quotation) {
+      throw new Error("Quotation not found.");
+    }
 
-if(
-quotation.recordStatus==="Archived"
-){
-throw new Error(
-"Archived quotation cannot create revisions"
-);
-}
+    if (quotation.recordStatus === "Archived") {
+      throw new Error("Archived quotation cannot create revisions.");
+    }
 
-const oldRevision=
-quotation.currentRevision;
+    const oldRevision = quotation.currentRevision;
+    const newRevision = generateNextRevisionNo_(oldRevision);
+    const newStatus = CONFIG.QUOTATION_STATUS.DRAFT;
 
-const newRevision=
-generateNextRevisionNo_(oldRevision);
+    const now = new Date();
+    const user = getCurrentUserName();
 
-const revisions=
-getRequiredSheet_(
-CONFIG.SHEETS.QUOTATION_REVISIONS
-);
+    markOldRevisionSuperseded_(qID, oldRevision);
 
-const items=
-getRequiredSheet_(
-CONFIG.SHEETS.QUOTATION_ITEMS
-);
+    copyRevisionItems_(qID, oldRevision, newRevision);
 
-const terms=
-getRequiredSheet_(
-CONFIG.SHEETS.QUOTATION_TERMS
-);
+    copyRevisionTerms_(qID, oldRevision, newRevision);
 
-const now=new Date();
-const user=getCurrentUserName();
+    createRevisionHeader_(
+      qID,
+      newRevision,
+      oldRevision,
+      newStatus,
+      now,
+      user
+    );
 
-copyRevisionItems_(
-qID,
-oldRevision,
-newRevision
-);
+    updateQuotationCurrentRevision_(
+      quotation.row,
+      newRevision,
+      newStatus,
+      now,
+      user
+    );
 
-copyRevisionTerms_(
-qID,
-oldRevision,
-newRevision
-);
+    logQuotationStatus_(
+      qID,
+      newRevision,
+      oldRevision,
+      newStatus,
+      "Revision",
+      "New revision created from " + oldRevision
+    );
 
-const revisionID=
-qID+"-"+newRevision;
+    return {
+      success: true,
+      qID: qID,
+      oldRevision: oldRevision,
+      revision: newRevision,
+      status: newStatus
+    };
 
-revisions
-.getRange(
-getNextDataRow_(revisions),
-1,
-1,
-20
-)
-.setValues([[
-revisionID,
-qID,
-newRevision,
-CONFIG.QUOTATION_STATUS.DRAFT,
-"Revision created",
-now,
-user,
-oldRevision,
-"",
-0,
-0,
-0,
-0,
-"",
-"",
-"",
-"",
-"",
-true,
-""
-]]);
+  } catch (err) {
 
-const quotations=
-getRequiredSheet_(
-CONFIG.SHEETS.QUOTATIONS
-);
+    SpreadsheetApp
+      .getUi()
+      .alert("Create Revision Error: " + err.message);
 
-quotations
-.getRange(
-quotation.row,
-5
-)
-.setValue(
-newRevision
-);
+    return {
+      success: false,
+      error: err.message
+    };
 
-quotations
-.getRange(
-quotation.row,
-19
-)
-.setValue(now);
+  } finally {
 
-quotations
-.getRange(
-quotation.row,
-20
-)
-.setValue(user);
+    lock.releaseLock();
 
-logQuotationStatus_(
-qID,
-newRevision,
-oldRevision,
-newRevision,
-"Revision",
-"Revision created"
-);
-
-return{
-success:true,
-revision:newRevision
-};
-
-}
-catch(err){
-
-SpreadsheetApp
-.getUi()
-.alert(err.message);
-
-return{
-success:false,
-error:err.message
-};
-
-}
-finally{
-lock.releaseLock();
-}
-
+  }
 }
 
 
 /*****************************************************
-COPY ITEMS
+ MARK OLD REVISION SUPERSEDED
 *****************************************************/
 
-function copyRevisionItems_(
-qID,
-oldRevision,
-newRevision
-){
+function markOldRevisionSuperseded_(qID, oldRevision) {
 
-const sheet=
-getRequiredSheet_(
-CONFIG.SHEETS.QUOTATION_ITEMS
-);
+  const revisions = getRequiredSheet_(
+    CONFIG.SHEETS.QUOTATION_REVISIONS
+  );
 
-if(sheet.getLastRow()<2){
-return;
-}
+  if (revisions.getLastRow() < 2) return;
 
-const data=
-sheet
-.getRange(
-2,
-1,
-sheet.getLastRow()-1,
-24
-)
-.getValues();
+  const data = revisions
+    .getRange(2, 1, revisions.getLastRow() - 1, revisions.getLastColumn())
+    .getValues();
 
-const rows=[];
+  for (let i = 0; i < data.length; i++) {
 
-data.forEach(function(r){
+    const row = data[i];
 
-const itemQID=r[1];
-const itemRevision=r[2];
-const itemStatus=r[19]||"Active";
+    if (
+      row[1] === qID &&
+      row[2] === oldRevision
+    ) {
 
-if(
-itemQID===qID &&
-itemRevision===oldRevision &&
-itemStatus!=="Deleted"
-){
+      const sheetRow = i + 2;
 
-const lineNo=r[3];
+      revisions.getRange(sheetRow, 4)
+        .setValue(CONFIG.QUOTATION_STATUS.SUPERSEDED);
 
-const newItemID=
-qID+
-"-"+
-newRevision+
-"-L"+
-("00"+lineNo)
-.slice(-2);
+      revisions.getRange(sheetRow, 19)
+        .setValue(false);
 
-const row=[...r];
-
-row[0]=newItemID;
-row[2]=newRevision;
-
-row[15]=new Date();
-row[16]=getCurrentUserName();
-
-row[17]=new Date();
-row[18]=getCurrentUserName();
-
-row[19]="Active";
-
-row[20]="";
-row[21]="";
-row[22]="";
-row[23]="";
-
-rows.push(row);
-
-}
-
-});
-
-if(rows.length){
-
-sheet
-.getRange(
-sheet.getLastRow()+1,
-1,
-rows.length,
-24
-)
-.setValues(rows);
-
-}
-
+      return;
+    }
+  }
 }
 
 
 /*****************************************************
-COPY TERMS
+ COPY ACTIVE ITEMS ONLY - 24 COLUMNS
 *****************************************************/
 
-function copyRevisionTerms_(
-qID,
-oldRevision,
-newRevision
-){
+function copyRevisionItems_(qID, oldRevision, newRevision) {
 
-const terms=
-getRequiredSheet_(
-CONFIG.SHEETS.QUOTATION_TERMS
-);
+  const sheet = getRequiredSheet_(
+    CONFIG.SHEETS.QUOTATION_ITEMS
+  );
 
-if(terms.getLastRow()<2){
-return;
-}
+  if (sheet.getLastRow() < 2) return;
 
-const data=
-terms
-.getRange(
-2,
-1,
-terms.getLastRow()-1,
-terms.getLastColumn()
-)
-.getValues();
+  const data = sheet
+    .getRange(2, 1, sheet.getLastRow() - 1, 24)
+    .getValues();
 
-for(let i=0;i<data.length;i++){
+  const now = new Date();
+  const user = getCurrentUserName();
 
-if(
-data[i][1]===qID &&
-data[i][2]===oldRevision
-){
+  const rows = [];
 
-const row=[...data[i]];
+  data.forEach(function(row) {
 
-row[2]=newRevision;
+    const itemQID = row[1];
+    const itemRevision = row[2];
+    const itemStatus = row[19] || "Active";
 
-row[16]=new Date();
-row[17]=getCurrentUserName();
+    if (
+      itemQID === qID &&
+      itemRevision === oldRevision &&
+      itemStatus !== "Deleted"
+    ) {
 
-terms
-.getRange(
-terms.getLastRow()+1,
-1,
-1,
-row.length
-)
-.setValues([row]);
+      const lineNo = Number(row[3]) || rows.length + 1;
 
-return;
+      const newRow = row.slice();
 
-}
+      newRow[0] =
+        qID + "-" + newRevision + "-L" + ("00" + lineNo).slice(-2);
 
-}
+      newRow[2] = newRevision;
+      newRow[15] = now;
+      newRow[16] = user;
+      newRow[17] = now;
+      newRow[18] = user;
+      newRow[19] = "Active";
+      newRow[20] = "";
+      newRow[21] = "";
+      newRow[22] = "";
+      newRow[23] = "";
 
+      rows.push(newRow);
+    }
+  });
+
+  if (rows.length) {
+    sheet
+      .getRange(sheet.getLastRow() + 1, 1, rows.length, 24)
+      .setValues(rows);
+  }
 }
 
 
 /*****************************************************
-REVISION NUMBER
+ COPY TERMS
 *****************************************************/
 
-function generateNextRevisionNo_(
-currentRevision
-){
+function copyRevisionTerms_(qID, oldRevision, newRevision) {
 
-const n=
-parseInt(
-currentRevision
-.replace("R","")
-)||0;
+  const terms = getRequiredSheet_(
+    CONFIG.SHEETS.QUOTATION_TERMS
+  );
 
-return "R"+
-("00"+(n+1))
-.slice(-2);
+  if (terms.getLastRow() < 2) return;
 
+  const data = terms
+    .getRange(2, 1, terms.getLastRow() - 1, terms.getLastColumn())
+    .getValues();
+
+  const now = new Date();
+  const user = getCurrentUserName();
+
+  for (let i = 0; i < data.length; i++) {
+
+    const row = data[i];
+
+    if (
+      row[1] === qID &&
+      row[2] === oldRevision
+    ) {
+
+      const newRow = row.slice();
+
+      newRow[0] = qID + "-" + newRevision + "-TERMS";
+      newRow[2] = newRevision;
+
+      if (newRow.length >= 18) {
+        newRow[16] = now;
+        newRow[17] = user;
+      }
+
+      terms
+        .getRange(terms.getLastRow() + 1, 1, 1, newRow.length)
+        .setValues([newRow]);
+
+      return;
+    }
+  }
+}
+
+
+/*****************************************************
+ CREATE REVISION HEADER
+*****************************************************/
+
+function createRevisionHeader_(
+  qID,
+  newRevision,
+  oldRevision,
+  status,
+  now,
+  user
+) {
+
+  const revisions = getRequiredSheet_(
+    CONFIG.SHEETS.QUOTATION_REVISIONS
+  );
+
+  const revisionID = qID + "-" + newRevision;
+
+  revisions
+    .getRange(getNextDataRow_(revisions), 1, 1, 20)
+    .setValues([[
+      revisionID,
+      qID,
+      newRevision,
+      status,
+      "Revision created from " + oldRevision,
+      now,
+      user,
+      oldRevision,
+      "",
+      0,
+      0,
+      0,
+      0,
+      "",
+      "",
+      "",
+      "",
+      "",
+      true,
+      ""
+    ]]);
+}
+
+
+/*****************************************************
+ UPDATE QUOTATION MASTER
+*****************************************************/
+
+function updateQuotationCurrentRevision_(
+  quotationRow,
+  newRevision,
+  newStatus,
+  now,
+  user
+) {
+
+  const quotations = getRequiredSheet_(
+    CONFIG.SHEETS.QUOTATIONS
+  );
+
+  quotations.getRange(quotationRow, 5).setValue(newRevision);
+  quotations.getRange(quotationRow, 6).setValue(newStatus);
+  quotations.getRange(quotationRow, 19).setValue(now);
+  quotations.getRange(quotationRow, 20).setValue(user);
+}
+
+
+/*****************************************************
+ REVISION NUMBER
+*****************************************************/
+
+function generateNextRevisionNo_(currentRevision) {
+
+  const n = parseInt(
+    String(currentRevision || "R00").replace("R", ""),
+    10
+  ) || 0;
+
+  return "R" + ("00" + (n + 1)).slice(-2);
 }
