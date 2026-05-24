@@ -156,36 +156,10 @@ function buildAssignedUserSelector() {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const form = ss.getSheetByName(CONFIG.SHEETS.QUOTATION_FORM);
-  const usersSheet = ss.getSheetByName(CONFIG.SHEETS.USERS);
 
-  if (!form || !usersSheet) return;
+  if (!form) return;
 
-  const targetCell = form.getRange("E9");
-
-  targetCell.clearContent();
-  targetCell.clearDataValidations();
-
-  if (usersSheet.getLastRow() < 2) return;
-
-  const users = usersSheet
-    .getRange(2, 2, usersSheet.getLastRow() - 1, 2)
-    .getValues()
-    .filter(function(row) {
-      return row[0] && row[1];
-    })
-    .map(function(row) {
-      return row[1] + " | " + row[0];
-    });
-
-  if (!users.length) return;
-
-  const rule = SpreadsheetApp
-    .newDataValidation()
-    .requireValueInList(users, true)
-    .setAllowInvalid(false)
-    .build();
-
-  targetCell.setDataValidation(rule);
+  form.getRange("E9:F9").clearDataValidations();
 }
 
 

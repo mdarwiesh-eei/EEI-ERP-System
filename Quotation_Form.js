@@ -76,13 +76,18 @@ function clearQuotationForm() {
 function refreshQuotationForm() {
 
   buildQuotationSelectorForForm();
-  buildQuotationCustomerSelector();
-  buildAssignedUserSelector();
+  buildRevisionSelectorForForm();
+
+  const sh = QFORM.SHEET();
+
+  sh.getRangeList([
+    "E5:F5",
+    "E9:F9"
+  ]).clearDataValidations();
 
   const data = QFORM.getData();
 
   if (data.quotationID) {
-    buildRevisionSelectorForForm(data.quotationID);
     refreshQuotationKPIsFromForm();
   }
 
@@ -147,6 +152,11 @@ function loadQuotationToForm() {
     "A22:L90"
   ]).clearContent();
 
+  sh.getRangeList([
+    "E5:F5",
+    "E9:F9"
+  ]).clearDataValidations();
+
   sh.getRange("B7").setValue(quotation.qID);
   sh.getRange("B5").setValue(quotation.customerName || "");
   sh.getRange("E5").setValue(quotation.projectName || "");
@@ -167,7 +177,6 @@ function loadQuotationToForm() {
 
   refreshQuotationKPIsFromForm();
 
-  // Reset selectors after load
   sh.getRange("B2").clearContent();
   sh.getRange("E2").clearContent();
 
