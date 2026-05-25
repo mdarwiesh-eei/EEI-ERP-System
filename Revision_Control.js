@@ -23,92 +23,45 @@ function createQuotationRevision(qID) {
     }
 
     if (quotation.recordStatus === "Archived") {
+      throw new Error("Archived quotation cannot create revisions.");
+    }
+
+    /*****************************************************
+     REVISION CREATION RULE
+     Only Sent quotations can create new revision
+    *****************************************************/
+
+    if (quotation.status !== CONFIG.QUOTATION_STATUS.SENT) {
       throw new Error(
-        "Archived quotation cannot create revisions."
+        "New revision can be created only when quotation status is Sent. Current status: " +
+        quotation.status
       );
     }
 
-    const oldRevision =
-      quotation.currentRevision;
-
-    const newRevision =
-      generateNextRevisionNo_(oldRevision);
-
-    const revisionsSheet =
-      getRequiredSheet_(
-        CONFIG.SHEETS.QUOTATION_REVISIONS
-      );
-
-    /*****************************************************
-     DUPLICATE REVISION PROTECTION
-    *****************************************************/
-
-    const revisionID =
-      qID + "-" + newRevision;
+    const oldRevision = quotation.currentRevision;
+    const newRevision = generateNextRevisionNo_(oldRevision);
+    const revisionID = qID + "-" + newRevision;
 
     if (revisionExists_(revisionID)) {
-
-      SpreadsheetApp
-        .getUi()
-        .alert(
-          "Revision already exists: " +
-          revisionID
-        );
-
-      return {
-        success: false,
-        error: "Duplicate revision"
-      };
+      throw new Error("Revision already exists: " + revisionID);
     }
 
-    /*****************************************************
-     CREATE NEW REVISION
-    *****************************************************/
+    const revisionsSheet = getRequiredSheet_(
+      CONFIG.SHEETS.QUOTATION_REVISIONS
+    );
 
     const now = new Date();
+    const user = getCurrentUserName();
+    const newStatus = CONFIG.QUOTATION_STATUS.DRAFT;
 
-    const user =
-      getCurrentUserName();
+    markOldRevisionSuperseded_(qID, oldRevision);
 
-    const newStatus =
-      CONFIG.QUOTATION_STATUS.DRAFT;
+    copyRevisionItems_(qID, oldRevision, newRevision);
 
-    /*****************************************************
-     LOCK OLD REVISION
-    *****************************************************/
-
-    markOldRevisionSuperseded_(
-      qID,
-      oldRevision
-    );
-
-    /*****************************************************
-     COPY DATA
-    *****************************************************/
-
-    copyRevisionItems_(
-      qID,
-      oldRevision,
-      newRevision
-    );
-
-    copyRevisionTerms_(
-      qID,
-      oldRevision,
-      newRevision
-    );
-
-    /*****************************************************
-     CREATE REVISION HEADER
-    *****************************************************/
+    copyRevisionTerms_(qID, oldRevision, newRevision);
 
     revisionsSheet
-      .getRange(
-        getNextDataRow_(revisionsSheet),
-        1,
-        1,
-        20
-      )
+      .getRange(getNextDataRow_(revisionsSheet), 1, 1, 20)
       .setValues([[
         revisionID,
         qID,
@@ -132,10 +85,6 @@ function createQuotationRevision(qID) {
         ""
       ]]);
 
-    /*****************************************************
-     UPDATE MASTER QUOTATION
-    *****************************************************/
-
     updateQuotationCurrentRevision_(
       quotation.row,
       newRevision,
@@ -144,22 +93,16 @@ function createQuotationRevision(qID) {
       user
     );
 
-    /*****************************************************
-     LOG
-    *****************************************************/
-
     logQuotationStatus_(
       qID,
       newRevision,
       oldRevision,
       newStatus,
       "Revision",
-      "New revision created from " +
-      oldRevision
+      "New revision created from " + oldRevision
     );
 
     if (typeof logAction === "function") {
-
       logAction({
         module: "Quotation Revision",
         action: "CREATE REVISION",
@@ -167,32 +110,27 @@ function createQuotationRevision(qID) {
         field: "Revision",
         oldValue: oldRevision,
         newValue: newRevision,
-        notes:
-          "New revision created"
+        notes: "New revision created from sent quotation"
       });
     }
 
     SpreadsheetApp
       .getUi()
-      .alert(
-        "Revision created: " +
-        newRevision
-      );
+      .alert("Revision created: " + newRevision);
 
     return {
       success: true,
       qID: qID,
-      revision: newRevision
+      oldRevision: oldRevision,
+      revision: newRevision,
+      status: newStatus
     };
 
   } catch (err) {
 
     SpreadsheetApp
       .getUi()
-      .alert(
-        "Create Revision Error: " +
-        err.message
-      );
+      .alert("Create Revision Error: " + err.message);
 
     Logger.log(err);
 
