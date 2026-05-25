@@ -358,17 +358,42 @@ function createRevisionFromForm() {
   const data = QFORM.getData();
 
   if (!data.quotationID) {
-    SpreadsheetApp.getUi().alert("Load quotation first.");
+    SpreadsheetApp
+      .getUi()
+      .alert("Load quotation first.");
     return;
   }
 
-  createQuotationRevision(data.quotationID);
+  const ui = SpreadsheetApp.getUi();
 
-  buildRevisionSelectorForForm(data.quotationID);
+  const response = ui.alert(
+    "Create New Revision",
+    "Are you sure you want to create a new revision?\n\n" +
+    "Current revision will become Superseded and locked.",
+    ui.ButtonSet.YES_NO
+  );
 
-  SpreadsheetApp
-    .getUi()
-    .alert("Revision created ✅");
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  const result =
+    createQuotationRevision(
+      data.quotationID
+    );
+
+  if (!result || !result.success) {
+    return;
+  }
+
+  buildRevisionSelectorForForm(
+    data.quotationID
+  );
+
+  ui.alert(
+    "Revision created ✅ " +
+    result.revision
+  );
 }
 
 function createQuotationRevisionFromForm() {
