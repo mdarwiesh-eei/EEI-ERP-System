@@ -127,13 +127,21 @@ function loadQuotationToForm() {
     return;
   }
 
-  if (!selectedRevision || selectedRevision === "No QID" || selectedRevision === "No Revisions") {
+  if (
+    !selectedRevision ||
+    selectedRevision === "No QID" ||
+    selectedRevision === "No Revisions"
+  ) {
     buildRevisionSelectorForForm(qID);
     selectedRevision = sh.getRange("E2").getValue();
   }
 
-  if (!selectedRevision || selectedRevision === "No QID" || selectedRevision === "No Revisions") {
-    SpreadsheetApp.getUi().alert("Select revision first.");
+  const revision = getQuotationRevision_(qID, selectedRevision);
+
+  if (!revision) {
+    SpreadsheetApp
+      .getUi()
+      .alert("Revision not found: " + qID + " / " + selectedRevision);
     return;
   }
 
@@ -160,7 +168,10 @@ function loadQuotationToForm() {
   sh.getRange("B7").setValue(quotation.qID);
   sh.getRange("B5").setValue(quotation.customerName || "");
   sh.getRange("E5").setValue(quotation.projectName || "");
-  sh.getRange("E7").setValue(quotation.status || "");
+
+  // IMPORTANT: Status from selected revision, not master quotation
+  sh.getRange("E7").setValue(revision.status || "");
+
   sh.getRange("B9").setValue(quotation.rfqDate || "");
   sh.getRange("E9").setValue(quotation.assignedTo || "");
   sh.getRange("B11").setValue(quotation.currency || "");
@@ -182,7 +193,14 @@ function loadQuotationToForm() {
 
   SpreadsheetApp
     .getUi()
-    .alert("Quotation loaded ✅ " + quotation.qID + " - " + selectedRevision);
+    .alert(
+      "Quotation loaded ✅ " +
+      quotation.qID +
+      " - " +
+      selectedRevision +
+      " / " +
+      revision.status
+    );
 }
 
 /*****************************************************
@@ -639,4 +657,46 @@ function submitCreateQuotationDialog(payload) {
 }
 
 
+
+function getQuotationRevision_(qID, revisionNo) {
+
+  const sheet = getRequiredSheet_(CONFIG.SHEETS.QUOTATION_REVISIONS);
+
+  if (sheet.getLastRow() < 2) {
+    return null;
+  }
+
+  const data = sheet
+    .getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn())
+    .getValues();
+
+  for (let i = 0; i < data.length; i++) {
+
+    const row = data[i];
+
+    if (
+      row[1] === qID &&
+      row[2] === revisionNo
+    ) {
+      return {
+        revisionID: row[0],
+        qID: row[1],
+        revisionNo: row[2],
+        status: row[3],
+        reason: row[4],
+        createdDate: row[5],
+        createdBy: row[6],
+        previousRevision: row[7],
+        subTotal: row[9],
+        discountPercent: row[10],
+        vatPercent: row[11],
+        grandTotal: row[12],
+        isCurrent: row[18],
+        notes: row[19]
+      };
+    }
+  }
+
+  return null;
+}
 
