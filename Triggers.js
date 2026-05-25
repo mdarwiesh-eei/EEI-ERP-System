@@ -231,137 +231,182 @@ function getTransformerTypeIndexes_(headers) {
  WORKFLOW WRAPPERS
 *****************************************************/
 
-function getLoadedQuotationID_() {
+function getLoadedQuotationContext_() {
+
   const sh = QFORM.SHEET();
 
   const qID = String(
     sh.getRange("B7").getDisplayValue()
   ).trim();
 
+  const loadedRevision = String(
+    sh.getRange("I7").getDisplayValue()
+  ).trim();
+
+  const loadedStatus = String(
+    sh.getRange("E7").getDisplayValue()
+  ).trim();
+
   if (!qID) {
     throw new Error("Load quotation first.");
   }
 
-  return qID;
+  if (!loadedRevision) {
+    throw new Error("Loaded revision is missing.");
+  }
+
+  if (!loadedStatus) {
+    throw new Error("Loaded revision status is missing.");
+  }
+
+  const quotation = getQuotationById_(qID);
+
+  if (!quotation) {
+    throw new Error("Quotation not found.");
+  }
+
+  if (String(quotation.currentRevision) !== String(loadedRevision)) {
+    throw new Error(
+      "Workflow actions are allowed only on the current revision.\n\n" +
+      "Loaded revision: " + loadedRevision + "\n" +
+      "Current revision: " + quotation.currentRevision
+    );
+  }
+
+  return {
+    qID: qID,
+    revision: loadedRevision,
+    status: loadedStatus,
+    quotation: quotation
+  };
 }
 
 
 function reloadLoadedQuotation_(qID) {
-  const sh = QFORM.SHEET();
 
-  sh.getRange("B2").setValue(qID);
-  buildRevisionSelectorForForm(qID);
+  const sh = QFORM.SHEET();
 
   const quotation = getQuotationById_(qID);
 
-  if (quotation && quotation.currentRevision) {
-    sh.getRange("E2").setValue(quotation.currentRevision);
+  if (!quotation) {
+    throw new Error("Quotation not found.");
   }
+
+  sh.getRange("B2").setValue(qID);
+
+  buildRevisionSelectorForForm(qID);
+
+  sh.getRange("E2").setValue(quotation.currentRevision);
 
   loadQuotationToForm();
 }
 
 
 function submitQuotationForReviewFromForm_() {
-  const qID = getLoadedQuotationID_();
+
+  const ctx = getLoadedQuotationContext_();
   const ui = SpreadsheetApp.getUi();
 
   const confirm = ui.alert(
     "Submit for Review",
-    "Submit quotation " + qID + " for review?",
+    "Submit quotation " + ctx.qID + " / " + ctx.revision + " for review?",
     ui.ButtonSet.YES_NO
   );
 
   if (confirm !== ui.Button.YES) return;
 
-  const result = submitQuotationForReview(qID);
+  const result = submitQuotationForReview(ctx.qID);
 
   if (result && result.success) {
-    reloadLoadedQuotation_(qID);
+    reloadLoadedQuotation_(ctx.qID);
     ui.alert("Quotation submitted for review ✅");
   }
 }
 
 
 function approveQuotationFromForm_() {
-  const qID = getLoadedQuotationID_();
+
+  const ctx = getLoadedQuotationContext_();
   const ui = SpreadsheetApp.getUi();
 
   const confirm = ui.alert(
     "Approve Quotation",
-    "Approve quotation " + qID + "?",
+    "Approve quotation " + ctx.qID + " / " + ctx.revision + "?",
     ui.ButtonSet.YES_NO
   );
 
   if (confirm !== ui.Button.YES) return;
 
   const result = approveQuotation(
-    qID,
+    ctx.qID,
     "Approved from Quotation Management Form"
   );
 
   if (result && result.success) {
-    reloadLoadedQuotation_(qID);
+    reloadLoadedQuotation_(ctx.qID);
     ui.alert("Quotation approved ✅");
   }
 }
 
 
 function sendQuotationFromForm_() {
-  const qID = getLoadedQuotationID_();
+
+  const ctx = getLoadedQuotationContext_();
   const ui = SpreadsheetApp.getUi();
 
   const confirm = ui.alert(
     "Send Quotation",
-    "Mark quotation " + qID + " as Sent?",
+    "Mark quotation " + ctx.qID + " / " + ctx.revision + " as Sent?",
     ui.ButtonSet.YES_NO
   );
 
   if (confirm !== ui.Button.YES) return;
 
   const result = sendQuotation(
-    qID,
+    ctx.qID,
     "Sent from Quotation Management Form"
   );
 
   if (result && result.success) {
-    reloadLoadedQuotation_(qID);
+    reloadLoadedQuotation_(ctx.qID);
     ui.alert("Quotation sent ✅");
   }
 }
 
 
 function markQuotationWon_() {
-  const qID = getLoadedQuotationID_();
+
+  const ctx = getLoadedQuotationContext_();
   const ui = SpreadsheetApp.getUi();
 
   const confirm = ui.alert(
     "Mark Quotation Won",
-    "Mark quotation " + qID + " as Won?",
+    "Mark quotation " + ctx.qID + " / " + ctx.revision + " as Won?",
     ui.ButtonSet.YES_NO
   );
 
   if (confirm !== ui.Button.YES) return;
 
   const result = markQuotationWon(
-    qID,
+    ctx.qID,
     "Marked won from Quotation Management Form"
   );
 
   if (result && result.success) {
-    reloadLoadedQuotation_(qID);
+    reloadLoadedQuotation_(ctx.qID);
     ui.alert("Quotation marked as Won ✅");
   }
 }
 
 
 function markQuotationLost_() {
-  const qID = getLoadedQuotationID_();
+
+  const ctx = getLoadedQuotationContext_();
   const ui = SpreadsheetApp.getUi();
 
   const response = ui.prompt(
     "Mark Quotation Lost",
-    "Enter lost reason for " + qID + ":",
+    "Enter lost reason for " + ctx.qID + " / " + ctx.revision + ":",
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -375,25 +420,26 @@ function markQuotationLost_() {
   }
 
   const result = markQuotationLost(
-    qID,
+    ctx.qID,
     reason,
     "Marked lost from Quotation Management Form"
   );
 
   if (result && result.success) {
-    reloadLoadedQuotation_(qID);
+    reloadLoadedQuotation_(ctx.qID);
     ui.alert("Quotation marked as Lost ✅");
   }
 }
 
 
 function cancelQuotation_() {
-  const qID = getLoadedQuotationID_();
+
+  const ctx = getLoadedQuotationContext_();
   const ui = SpreadsheetApp.getUi();
 
   const response = ui.prompt(
     "Cancel Quotation",
-    "Enter cancellation reason for " + qID + ":",
+    "Enter cancellation reason for " + ctx.qID + " / " + ctx.revision + ":",
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -407,13 +453,13 @@ function cancelQuotation_() {
   }
 
   const result = cancelQuotation(
-    qID,
+    ctx.qID,
     reason,
     "Cancelled from Quotation Management Form"
   );
 
   if (result && result.success) {
-    reloadLoadedQuotation_(qID);
+    reloadLoadedQuotation_(ctx.qID);
     ui.alert("Quotation cancelled ✅");
   }
 }
