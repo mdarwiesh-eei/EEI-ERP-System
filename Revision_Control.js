@@ -446,16 +446,23 @@ function ensureCurrentRevisionEditable_(qID, revisionNo) {
     throw new Error("Archived quotation cannot be edited.");
   }
 
-  if (!isCurrentRevision_(qID, revisionNo)) {
-    throw new Error(
-      "This revision is superseded and cannot be edited."
-    );
+  if (String(quotation.currentRevision) !== String(revisionNo)) {
+    throw new Error("This revision is superseded and cannot be edited.");
   }
 
-  if (!canEditQuotation_(quotation.status)) {
+  const revision = getQuotationRevision_(qID, revisionNo);
+
+  if (!revision) {
+    throw new Error("Revision not found.");
+  }
+
+  if (revision.status === CONFIG.QUOTATION_STATUS.SUPERSEDED) {
+    throw new Error("This revision is superseded and cannot be edited.");
+  }
+
+  if (!canEditQuotation_(revision.status)) {
     throw new Error(
-      "Editing is not allowed for status: " +
-      quotation.status
+      "Editing is not allowed for revision status: " + revision.status
     );
   }
 

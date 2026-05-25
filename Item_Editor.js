@@ -6,114 +6,112 @@
 
 function saveQuotationItemsGrid() {
 
-    const sh = QFORM.SHEET();
+  const sh = QFORM.SHEET();
 
-    const qID = String(sh.getRange("B7").getDisplayValue()).trim();
-    const revision = String(sh.getRange("E2").getDisplayValue()).trim();
+  const qID = String(sh.getRange("B7").getDisplayValue()).trim();
+  const revision = String(sh.getRange("I7").getDisplayValue()).trim();
 
-    ensureCurrentRevisionEditable_(qID, revision);
+  if (!qID) {
+    SpreadsheetApp.getUi().alert("Load quotation first.");
+    return;
+  }
 
-    if (!qID) {
-        SpreadsheetApp.getUi().alert("Load quotation first.");
-        return;
+  if (!revision) {
+    SpreadsheetApp.getUi().alert("Loaded revision is missing.");
+    return;
+  }
+
+  ensureCurrentRevisionEditable_(qID, revision);
+
+  const grid = sh.getRange("A22:L90").getValues();
+
+  let added = 0;
+  let updated = 0;
+  let deleted = 0;
+
+  grid.forEach(function(row) {
+
+    const lineNo = Number(row[0]) || 0;
+    const description = String(row[1] || "").trim();
+    const transformerType = String(row[2] || "").trim();
+    const powerKVA = String(row[3] || "").trim();
+    const voltage = String(row[4] || "").trim();
+    const quantity = Number(row[5]) || 0;
+    const unitPrice = Number(row[6]) || 0;
+    const deliveryTime = String(row[8] || "").trim();
+    const warranty = String(row[9] || "").trim();
+    const notes = String(row[10] || "").trim();
+    const action = String(row[11] || "").trim();
+
+    const isBlank =
+      !lineNo &&
+      !description &&
+      !quantity &&
+      !unitPrice;
+
+    if (isBlank) return;
+
+    if (lineNo && action === "Delete") {
+      softDeleteQuotationItemByLine_(qID, revision, lineNo);
+      deleted++;
+      return;
     }
 
-    if (!revision) {
-        SpreadsheetApp.getUi().alert("Select revision first.");
-        return;
+    if (!description) {
+      throw new Error("Description is required at grid line: " + (lineNo || "new"));
     }
 
-    const grid = sh.getRange("A22:L90").getValues();
+    if (quantity <= 0) {
+      throw new Error("Quantity must be greater than zero at grid line: " + (lineNo || "new"));
+    }
 
-    let added = 0;
-    let updated = 0;
-    let deleted = 0;
+    if (unitPrice <= 0) {
+      throw new Error("Unit price must be greater than zero at grid line: " + (lineNo || "new"));
+    }
 
-    grid.forEach(function (row) {
+    const itemData = {
+      qID: qID,
+      revisionNo: revision,
+      description: description,
+      transformerType: transformerType,
+      powerKVA: powerKVA,
+      voltage: voltage,
+      quantity: quantity,
+      unitPrice: unitPrice,
+      currency: String(sh.getRange("B11").getDisplayValue()).trim(),
+      deliveryTime: deliveryTime,
+      warranty: warranty,
+      notes: notes
+    };
 
-        const lineNo = Number(row[0]) || 0;
-        const description = String(row[1] || "").trim();
-        const transformerType = String(row[2] || "").trim();
-        const powerKVA = String(row[3] || "").trim();
-        const voltage = String(row[4] || "").trim();
-        const quantity = Number(row[5]) || 0;
-        const unitPrice = Number(row[6]) || 0;
-        const deliveryTime = String(row[8] || "").trim();
-        const warranty = String(row[9] || "").trim();
-        const notes = String(row[10] || "").trim();
-        const action = String(row[11] || "").trim();
+    if (!lineNo) {
+      addQuotationItem(itemData);
+      added++;
+      return;
+    }
 
-        const isBlank =
-            !lineNo &&
-            !description &&
-            !quantity &&
-            !unitPrice;
+    const existingItem = getQuotationItemByLine_(qID, revision, lineNo);
 
-        if (isBlank) return;
+    if (!existingItem) {
+      addQuotationItem(itemData);
+      added++;
+      return;
+    }
 
-        if (lineNo && action === "Delete") {
-            softDeleteQuotationItemByLine_(qID, revision, lineNo);
-            deleted++;
-            return;
-        }
+    updateQuotationItemByLine_(qID, revision, lineNo, itemData);
+    updated++;
+  });
 
-        if (!description) {
-            throw new Error("Description is required at grid line: " + (lineNo || "new"));
-        }
+  updateQuotationTotals(qID, revision);
+  loadQuotationItemsToForm_(qID, revision);
+  refreshQuotationKPIsFromForm();
 
-        if (quantity <= 0) {
-            throw new Error("Quantity must be greater than zero at grid line: " + (lineNo || "new"));
-        }
-
-        if (unitPrice <= 0) {
-            throw new Error("Unit price must be greater than zero at grid line: " + (lineNo || "new"));
-        }
-
-        const itemData = {
-            qID: qID,
-            revisionNo: revision,
-            description: description,
-            transformerType: transformerType,
-            powerKVA: powerKVA,
-            voltage: voltage,
-            quantity: quantity,
-            unitPrice: unitPrice,
-            currency: String(sh.getRange("B11").getDisplayValue()).trim(),
-            deliveryTime: deliveryTime,
-            warranty: warranty,
-            notes: notes
-        };
-
-        if (!lineNo) {
-            addQuotationItem(itemData);
-            added++;
-            return;
-        }
-
-        const existingItem = getQuotationItemByLine_(qID, revision, lineNo);
-
-        if (!existingItem) {
-            addQuotationItem(itemData);
-            added++;
-            return;
-        }
-
-        updateQuotationItemByLine_(qID, revision, lineNo, itemData);
-        updated++;
-
-    });
-
-    updateQuotationTotals(qID, revision);
-    loadQuotationItemsToForm_(qID, revision);
-    refreshQuotationKPIsFromForm();
-
-    SpreadsheetApp.getUi().alert(
-        "Items saved ✅\nAdded: " + added +
-        "\nUpdated: " + updated +
-        "\nDeleted: " + deleted
-    );
+  SpreadsheetApp.getUi().alert(
+    "Items saved ✅\nAdded: " + added +
+    "\nUpdated: " + updated +
+    "\nDeleted: " + deleted
+  );
 }
-
 
 function updateQuotationItemByLine_(qID, revision, lineNo, itemData) {
 
